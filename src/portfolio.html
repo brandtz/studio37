@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en" data-page="portfolio">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Portfolio &mdash; Studio 37 Custom Designs</title>
+  <meta name="description" content="A gallery of custom woodworking, furniture, slab work, and small goods by Studio 37." />
+  <link rel="icon" href="/assets/images/logo.png" />
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/site.css" />
+  <script defer src="/assets/js/site.js"></script>
+  <script defer src="/assets/js/portfolio.js"></script>
+</head>
+<body class="grain">
+  <header class="nav"></header>
+  <nav class="nav-mobile-overlay" aria-label="Mobile navigation"></nav>
+
+  <section class="hero hero-short">
+    <div class="hero-bg"><img src="/assets/images/portfolio_3.jpg" alt="" /></div>
+    <div class="hero-gradient"></div>
+    <div class="hero-content">
+      <p class="hero-eyebrow">Selected Work</p>
+      <h1 class="hero-title">Portfolio</h1>
+      <p class="hero-sub">A gallery of recent custom pieces.</p>
+    </div>
+  </section>
+
+  <div class="portfolio-filters" role="tablist">
+    <div class="filter-bar">
+      <button class="filter-pill active" data-filter="all" role="tab" aria-selected="true">All</button>
+      <button class="filter-pill" data-filter="cabinetry" role="tab">Cabinetry</button>
+      <button class="filter-pill" data-filter="furniture" role="tab">Furniture</button>
+      <button class="filter-pill" data-filter="slab-work" role="tab">Slab Work</button>
+      <button class="filter-pill" data-filter="small-goods" role="tab">Small Goods</button>
+    </div>
+  </div>
+
+  <div class="masonry" id="portfolio-grid">
+    <!-- Item template: data-category drives the filter -->
+    <figure class="masonry-item" data-category="furniture" data-caption="Live edge coffee table — Black Walnut">
+      <img src="/assets/images/shop/liveedge_coffee_1.jpg" alt="Live edge coffee table" loading="lazy" />
+      <figcaption class="masonry-item-overlay">Live edge coffee table</figcaption>
+    </figure>
+    <figure class="masonry-item" data-category="furniture" data-caption="Custom side table">
+      <img src="/assets/images/shop/side_table_2.jpg" alt="Custom side table" loading="lazy" />
+      <figcaption class="masonry-item-overlay">Custom side table</figcaption>
+    </figure>
+    <figure class="masonry-item" data-category="small-goods" data-caption="Black Walnut cutting board">
+      <img src="/assets/images/shop/blackwalnut_board.jpeg" alt="Black walnut cutting board" loading="lazy" />
+      <figcaption class="masonry-item-overlay">Black Walnut cutting board</figcaption>
+    </figure>
+    <figure class="masonry-item" data-category="slab-work" data-caption="Live edge slab table">
+      <img src="/assets/images/shop/liveedge_table_1.jpg" alt="Live edge slab table" loading="lazy" />
+      <figcaption class="masonry-item-overlay">Live edge slab table</figcaption>
+    </figure>
+    <figure class="masonry-item" data-category="furniture" data-caption="Coffee table — alternate angle">
+      <img src="/assets/images/shop/liveedge_coffee_2.jpg" alt="Live edge coffee table" loading="lazy" />
+      <figcaption class="masonry-item-overlay">Coffee table</figcaption>
+    </figure>
+    <figure class="masonry-item" data-category="small-goods" data-caption="Charcuterie board — Black Walnut">
+      <img src="/assets/images/shop/charcuterie_walnut_1.jpg" alt="Charcuterie board" loading="lazy" />
+      <figcaption class="masonry-item-overlay">Charcuterie board</figcaption>
+    </figure>
+    <figure class="masonry-item" data-category="small-goods" data-caption="Edge grain cutting/charcuterie board">
+      <img src="/assets/images/shop/edge_grain_board_1.jpg" alt="Edge grain board" loading="lazy" />
+      <figcaption class="masonry-item-overlay">Edge grain board</figcaption>
+    </figure>
+    <figure class="masonry-item" data-category="furniture" data-caption="Live edge bench — Black Walnut">
+      <img src="/assets/images/shop/bench_1.jpeg" alt="Live edge bench" loading="lazy" />
+      <figcaption class="masonry-item-overlay">Live edge bench</figcaption>
+    </figure>
+    <figure class="masonry-item" data-category="small-goods" data-caption="McKenzie River pizza paddle">
+      <img src="/assets/images/shop/pizza_paddle_1.jpg" alt="Pizza paddle" loading="lazy" />
+      <figcaption class="masonry-item-overlay">Pizza paddle</figcaption>
+    </figure>
+    <figure class="masonry-item" data-category="small-goods" data-caption="Timber Hollow chopping block">
+      <img src="/assets/images/shop/chopping_block_2.jpg" alt="Chopping block" loading="lazy" />
+      <figcaption class="masonry-item-overlay">Chopping block</figcaption>
+    </figure>
+    <figure class="masonry-item" data-category="small-goods" data-caption="Black Walnut clipboard">
+      <img src="/assets/images/shop/clipboard_1.jpg" alt="Clipboard" loading="lazy" />
+      <figcaption class="masonry-item-overlay">Clipboard</figcaption>
+    </figure>
+    <figure class="masonry-item" data-category="small-goods" data-caption="Cascade coasters with holder">
+      <img src="/assets/images/shop/coasters_1.png" alt="Coasters" loading="lazy" />
+      <figcaption class="masonry-item-overlay">Coasters</figcaption>
+    </figure>
+    <figure class="masonry-item" data-category="small-goods" data-caption="Chess board / cutting board">
+      <img src="/assets/images/shop/chessboard_1.jpg" alt="Chess board" loading="lazy" />
+      <figcaption class="masonry-item-overlay">Chess board</figcaption>
+    </figure>
+    <figure class="masonry-item" data-category="furniture" data-caption="English Walnut swing seat">
+      <img src="/assets/images/shop/swing_seat_1.webp" alt="Swing seat" loading="lazy" />
+      <figcaption class="masonry-item-overlay">Swing seat</figcaption>
+    </figure>
+    <figure class="masonry-item" data-category="small-goods" data-caption="Countertop prep cutting board">
+      <img src="/assets/images/shop/countertop_board.jpg" alt="Countertop cutting board" loading="lazy" />
+      <figcaption class="masonry-item-overlay">Countertop board</figcaption>
+    </figure>
+  </div>
+
+  <section class="cta-banner">
+    <h2>Have a Project in Mind?</h2>
+    <p>Every piece is one of a kind. Let's build yours.</p>
+    <a class="btn-primary" href="/contact">Start a Conversation</a>
+  </section>
+
+  <!-- LIGHTBOX -->
+  <div class="lightbox" id="lightbox" aria-hidden="true" role="dialog">
+    <button class="lightbox-close" aria-label="Close">&times;</button>
+    <button class="lightbox-prev" aria-label="Previous">&#8249;</button>
+    <button class="lightbox-next" aria-label="Next">&#8250;</button>
+    <img class="lightbox-img" alt="" />
+    <span class="lightbox-caption"></span>
+  </div>
+
+  <footer class="footer"></footer>
+</body>
+</html>

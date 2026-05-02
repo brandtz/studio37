@@ -1,0 +1,69 @@
+# Studio 37 — Netlify configuration
+
+[build]
+  publish = "src"
+  functions = "src/netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+  # Default Node.js runtime — overridable per-function if needed.
+
+# Pretty URLs: /services -> /services.html (Netlify does this automatically with `pretty_urls`).
+[build.processing.html]
+  pretty_urls = true
+
+# API routing: /api/* lives in functions
+[[redirects]]
+  from = "/api/products"
+  to = "/.netlify/functions/products"
+  status = 200
+
+[[redirects]]
+  from = "/api/products/:id"
+  to = "/.netlify/functions/products?id=:id"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/products"
+  to = "/.netlify/functions/admin-products"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/products/:id"
+  to = "/.netlify/functions/admin-products?id=:id"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/upload"
+  to = "/.netlify/functions/admin-upload"
+  status = 200
+
+[[redirects]]
+  from = "/api/quote-request"
+  to = "/.netlify/functions/quote-request"
+  status = 200
+
+[[redirects]]
+  from = "/api/order-notify"
+  to = "/.netlify/functions/order-notify"
+  status = 200
+
+[[redirects]]
+  from = "/api/seed-products"
+  to = "/.netlify/functions/seed-products"
+  status = 200
+
+# SPA-style fallback for /admin (single-page admin app)
+[[redirects]]
+  from = "/admin/*"
+  to = "/admin/index.html"
+  status = 200
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"

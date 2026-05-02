@@ -1,0 +1,29 @@
+# Node / Netlify
+node_modules/
+.netlify/
+.cache/
+dist/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+
+# Raw scrape archive — large originals, not needed in git
+_archive/
+
+# Design handoff duplicate assets — originals live in src/assets/images/
+docs/design_handoff/assets/

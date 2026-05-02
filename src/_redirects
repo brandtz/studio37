@@ -1,0 +1,13 @@
+# Studio 37 — _redirects (fallback for `netlify.toml` rules; both are honored).
+
+/api/products/*           /.netlify/functions/products?id=:splat   200
+/api/products             /.netlify/functions/products             200
+/api/admin/products/*     /.netlify/functions/admin-products?id=:splat 200
+/api/admin/products       /.netlify/functions/admin-products       200
+/api/admin/upload         /.netlify/functions/admin-upload         200
+/api/quote-request        /.netlify/functions/quote-request        200
+/api/order-notify         /.netlify/functions/order-notify         200
+/api/seed-products        /.netlify/functions/seed-products        200
+
+# 404 fallback
+/*                         /404.html                                 404

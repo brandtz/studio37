@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en" data-page="contact">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Get a Quote &mdash; Studio 37 Custom Designs</title>
+  <meta name="description" content="Tell me about your project. I'll get back to you within 24 hours." />
+  <link rel="icon" href="/assets/images/logo.png" />
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/site.css" />
+  <script defer src="/assets/js/site.js"></script>
+  <script defer src="/assets/js/contact.js"></script>
+</head>
+<body class="grain">
+  <header class="nav"></header>
+  <nav class="nav-mobile-overlay" aria-label="Mobile navigation"></nav>
+
+  <section class="hero hero-short">
+    <div class="hero-bg"><img src="/assets/images/portfolio_2.jpg" alt="" /></div>
+    <div class="hero-gradient"></div>
+    <div class="hero-content">
+      <p class="hero-eyebrow">Studio 37</p>
+      <h1 class="hero-title">Let's Build Something</h1>
+      <p class="hero-sub">Tell me about your project. I'll get back to you within 24 hours.</p>
+    </div>
+  </section>
+
+  <div class="contact-layout">
+    <aside class="contact-info reveal">
+      <p class="section-label">How it works</p>
+      <h2 style="font-family:var(--font-display);font-size:var(--text-3xl);font-weight:300;margin-bottom:var(--space-5);">A real conversation, not a help desk.</h2>
+      <p>Every project starts with a conversation. Tell me what you have in mind &mdash; dimensions, materials, timeline &mdash; and I'll respond personally with next steps and a realistic estimate.</p>
+      <p>Most replies happen the same day. For urgent inquiries, mention it in your message.</p>
+      <p>Prefer email? <a href="mailto:Drew@studio37customdesigns.com">Drew@studio37customdesigns.com</a></p>
+      <p>Or follow along on <a href="https://www.instagram.com/studio37_customwoodworking" target="_blank" rel="noopener">Instagram</a>.</p>
+    </aside>
+
+    <form class="contact-form" id="quote-form" name="quote" netlify enctype="multipart/form-data" novalidate>
+      <input type="hidden" name="form-name" value="quote" />
+      <p class="hp-field" style="display:none;">
+        <label>Don't fill this out: <input name="bot-field" /></label>
+      </p>
+
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label" for="firstName">First name</label>
+          <input class="form-input" id="firstName" name="firstName" type="text" required autocomplete="given-name" />
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="lastName">Last name</label>
+          <input class="form-input" id="lastName" name="lastName" type="text" required autocomplete="family-name" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label" for="email">Email</label>
+          <input class="form-input" id="email" name="email" type="email" required autocomplete="email" />
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="phone">Phone</label>
+          <input class="form-input" id="phone" name="phone" type="tel" required autocomplete="tel" />
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="service">Service type</label>
+        <select class="form-select" id="service" name="service" required>
+          <option value="">Select a service&hellip;</option>
+          <option value="cabinetry">Custom Cabinetry</option>
+          <option value="slab">Slab Flattening</option>
+          <option value="furniture">Custom Furniture</option>
+          <option value="small-goods">Small Goods / Gifts</option>
+          <option value="gc">General Contractor Work</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="description">Project description</label>
+        <textarea class="form-textarea" id="description" name="description" required
+          placeholder="Describe your project — dimensions, materials, timeline, anything that will help me understand your vision."></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label" for="location">Project location</label>
+          <input class="form-input" id="location" name="location" type="text" placeholder="City or region" />
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="budget">Estimated budget</label>
+          <select class="form-select" id="budget" name="budget">
+            <option value="">Select&hellip;</option>
+            <option value="under-500">Under $500</option>
+            <option value="500-2000">$500 &ndash; $2,000</option>
+            <option value="2000-5000">$2,000 &ndash; $5,000</option>
+            <option value="5000-plus">$5,000+</option>
+            <option value="not-sure">Not sure yet</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <span class="form-label">Preferred contact method</span>
+        <div class="pill-group">
+          <label class="pill-radio"><input type="radio" name="contactMethod" value="phone" /><span>Phone Call</span></label>
+          <label class="pill-radio"><input type="radio" name="contactMethod" value="text" checked /><span>Text Message</span></label>
+          <label class="pill-radio"><input type="radio" name="contactMethod" value="email" /><span>Email</span></label>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="referral">How did you find us?</label>
+        <select class="form-select" id="referral" name="referral">
+          <option value="">Select&hellip;</option>
+          <option value="google">Google</option>
+          <option value="instagram">Instagram</option>
+          <option value="pinterest">Pinterest</option>
+          <option value="referral">Referral</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <span class="form-label">Reference photos (optional)</span>
+        <label class="upload-zone" id="upload-zone">
+          <input type="file" name="photos" id="photos" accept="image/*" multiple style="display:none;" />
+          <span>Click to upload, or drag &amp; drop &mdash; up to 3 images, 10&nbsp;MB each</span>
+        </label>
+        <ul id="upload-list" style="list-style:none;margin-top:var(--space-2);font-size:var(--text-sm);color:var(--color-text-muted);"></ul>
+      </div>
+
+      <button class="btn-primary" type="submit" style="width:100%;justify-content:center;">
+        Send My Request &rarr;
+      </button>
+    </form>
+
+    <div class="form-success" id="form-success" hidden>
+      <h2>Thank you, <span id="success-name">friend</span>.</h2>
+      <p>Drew will be in touch within 24 hours.</p>
+    </div>
+  </div>
+
+  <footer class="footer"></footer>
+</body>
+</html>
