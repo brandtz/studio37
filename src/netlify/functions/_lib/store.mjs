@@ -1,6 +1,7 @@
 // Shared helpers for Netlify Functions.
 
 import { getStore } from '@netlify/blobs';
+import seedProducts from './products.seed.json' with { type: 'json' };
 
 export const PRODUCT_STORE = 'products';
 export const LEAD_STORE = 'leads';
@@ -33,6 +34,24 @@ export function requireAdmin(req) {
 
 export function nowIso() {
   return new Date().toISOString();
+}
+
+export async function ensureProductSeeded(force = false) {
+  const store = productStore();
+  const existing = await store.list();
+
+  if (existing.blobs?.length && !force) {
+    return { seeded: false, written: 0, count: existing.blobs.length };
+  }
+
+  const now = nowIso();
+  let written = 0;
+  for (const product of seedProducts) {
+    await store.setJSON(product.id, { ...product, created_at: now, updated_at: now });
+    written++;
+  }
+
+  return { seeded: true, written, count: written };
 }
 
 export function slugify(s) {

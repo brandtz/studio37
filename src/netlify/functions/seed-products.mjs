@@ -2,8 +2,7 @@
 // One-shot bootstrap: load `_lib/products.seed.json` into the products blob store.
 // Auth: X-Admin-Key. Refuses to run if the store is non-empty unless `?force=1`.
 
-import { productStore, json, requireAdmin, nowIso } from './_lib/store.mjs';
-import seed from './_lib/products.seed.json' with { type: 'json' };
+import { ensureProductSeeded, json, requireAdmin } from './_lib/store.mjs';
 
 export default async (req) => {
   const auth = requireAdmin(req);
@@ -13,23 +12,15 @@ export default async (req) => {
   const url = new URL(req.url);
   const force = url.searchParams.get('force') === '1';
 
-  const store = productStore();
-  const existing = await store.list();
-  if (existing.blobs?.length && !force) {
+  const result = await ensureProductSeeded(force);
+  if (!result.seeded && !force) {
     return json({
       error: 'store_not_empty',
-      message: `Refusing to seed — ${existing.blobs.length} products already present. Re-run with ?force=1 to overwrite.`,
+      message: `Refusing to seed — ${result.count} products already present. Re-run with ?force=1 to overwrite.`,
     }, 409);
   }
 
-  let written = 0;
-  const now = nowIso();
-  for (const p of seed) {
-    await store.setJSON(p.id, { ...p, created_at: now, updated_at: now });
-    written++;
-  }
-
-  return json({ ok: true, written });
+  return json({ ok: true, written: result.written });
 };
 
 export const config = { path: '/.netlify/functions/seed-products' };

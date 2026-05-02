@@ -777,3 +777,35 @@
   .footer-inner { grid-template-columns: 1fr; gap: var(--space-6); }
   .footer-bottom { flex-direction: column; gap: var(--space-2); text-align: center; }
 }
+
+@media (max-width: 480px) {
+  /* Viewport-scale hero type for smallest phones */
+  .hero-title { font-size: clamp(2.2rem, 9vw, var(--text-5xl)); }
+  .hero-sub { font-size: var(--text-base); }
+  .hero-eyebrow { font-size: var(--text-xs); }
+
+  /* Services strip: full-width single column */
+  .services-strip { grid-template-columns: 1fr; }
+  .service-tile { border-right: none !important; }
+
+  /* Filter bar: allow pills to wrap tighter */
+  .filter-bar { gap: var(--space-1); }
+  .filter-pill { padding: 6px 14px; font-size: var(--text-xs); }
+
+  /* Portfolio masonry already 1 col at 768px — ensure padding */
+  .masonry { padding: var(--space-4); gap: var(--space-3); }
+
+  /* CTA banner */
+  .cta-banner { padding: var(--space-8) var(--space-5); }
+  .cta-banner h2 { font-size: var(--text-2xl); }
+
+  /* Section headings */
+  .section-title { font-size: var(--text-2xl); }
+  .section-sub { font-size: var(--text-sm); }
+
+  /* About page portrait */
+  .about-portrait { width: 100%; max-width: 100%; border-radius: var(--radius-sm); }
+
+  /* Shop product price / CTA stacking */
+  .card-product-footer { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+}

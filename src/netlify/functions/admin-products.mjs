@@ -1,11 +1,13 @@
 // /api/admin/products[?id=:id]
 // Admin CRUD on the products blob store. Auth via X-Admin-Key.
 
-import { productStore, json, requireAdmin, nowIso, slugify } from './_lib/store.mjs';
+import { ensureProductSeeded, productStore, json, requireAdmin, nowIso, slugify } from './_lib/store.mjs';
 
 export default async (req) => {
   const auth = requireAdmin(req);
   if (auth) return auth;
+
+  await ensureProductSeeded();
 
   const url = new URL(req.url);
   const id = url.searchParams.get('id');
