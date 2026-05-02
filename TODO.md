@@ -34,7 +34,7 @@
 ## Phase 1 — Marketing Pages (build to fidelity)
 
 - [x] **Home** ([src/index.html](src/index.html)) — hero ✓, services strip ✓, featured work ✓, about teaser ✓, quote CTA ✓, featured shop ✓ (live data via [home.js](src/assets/js/home.js) with static fallback), scroll indicator ✓, footer ✓
-- [x] **Services** (`src/services.html`) — alternating sections, GC waitlist
+- [x] **Services** (`src/services.html`) — alternating sections, GC waitlist; slab flattening section rewritten with $85/hr rate ✓
 - [x] **Portfolio** (`src/portfolio.html`) — masonry grid, filter pills, lightbox modal
 - [x] **About** (`src/about.html`) — portrait, story, craft cards, GC callout
 - [x] **Contact / Quote** (`src/contact.html`) — form, validation, success state
@@ -113,6 +113,13 @@
 - [!] Cloudflare R2 setup — see [docs/setup/cloudflare-r2.md](docs/setup/cloudflare-r2.md)
 - [!] GC license expected date (drives Phase 3 services-page update)
 - Out-of-stock SKUs (chessboard, monkeypod, eastern-walnut, butcherblock-2, butcher-juice) — **decision: leave as out_of_stock for now per Drew**
+- [!] Slab flattening photos (5 target images) — owner to commit to
+  `src/assets/images/portfolio/slab-flattening/` as `slab_1.jpg` through `slab_5.jpg`
+- [!] Custom cabinetry photos (4 target images) — owner to commit to
+  `src/assets/images/portfolio/cabinetry/` as `cabinetry_1.jpg` through `cabinetry_4.jpg`
+- [!] Conference table photos (3 target images) — owner to commit to
+  `src/assets/images/portfolio/conference-tables/` as `conference_table_1.jpg` through `conference_table_3.jpg`
+- [!] Slab flattening pricing confirmed: $85/hr — wired into site copy ✓
 
 ---
 
