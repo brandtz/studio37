@@ -168,5 +168,20 @@
     mountChrome();
     wireNav();
     wireReveal();
+
+    // Pre-fill service dropdown from query param
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const service = params.get('service');
+      if (!service) return;
+      const select = document.querySelector('select[name="service"], #service-type');
+      if (!select) return;
+      // Try exact match first, then partial
+      const options = Array.from(select.options);
+      const match =
+        options.find(o => o.value === service) ||
+        options.find(o => o.value.includes(service) || service.includes(o.value));
+      if (match) match.selected = true;
+    })();
   });
 })();
