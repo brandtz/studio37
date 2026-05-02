@@ -6,6 +6,10 @@ import seedProducts from './products.seed.json' with { type: 'json' };
 export const PRODUCT_STORE = 'products';
 export const LEAD_STORE = 'leads';
 
+// Bump this whenever the seed data changes — triggers auto-migration on next cold start.
+const SEED_VERSION = 2;
+const SEED_VERSION_KEY = '_seed_version';
+
 export function productStore() {
   return getStore({ name: PRODUCT_STORE, consistency: 'strong' });
 }
@@ -36,20 +40,36 @@ export function nowIso() {
   return new Date().toISOString();
 }
 
+/** Normalize image paths: replace .jpeg extensions with .jpg */
+function normalizeImages(product) {
+  return {
+    ...product,
+    images: (product.images || []).map((img) => img.replace(/\.jpeg$/i, '.jpg')),
+  };
+}
+
 export async function ensureProductSeeded(force = false) {
   const store = productStore();
-  const existing = await store.list();
 
-  if (existing.blobs?.length && !force) {
-    return { seeded: false, written: 0, count: existing.blobs.length };
+  if (!force) {
+    // Check stored seed version — reseed if it's missing or outdated.
+    const storedVersion = await store.get(SEED_VERSION_KEY, { type: 'json' }).catch(() => null);
+    if (storedVersion?.v === SEED_VERSION) {
+      const existing = await store.list();
+      if (existing.blobs?.filter((b) => b.key !== SEED_VERSION_KEY).length) {
+        return { seeded: false, written: 0 };
+      }
+    }
   }
 
   const now = nowIso();
   let written = 0;
   for (const product of seedProducts) {
-    await store.setJSON(product.id, { ...product, created_at: now, updated_at: now });
+    const normalized = normalizeImages(product);
+    await store.setJSON(normalized.id, { ...normalized, created_at: now, updated_at: now });
     written++;
   }
+  await store.setJSON(SEED_VERSION_KEY, { v: SEED_VERSION });
 
   return { seeded: true, written, count: written };
 }

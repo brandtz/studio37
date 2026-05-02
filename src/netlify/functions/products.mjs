@@ -47,6 +47,7 @@ export default async (req) => {
   const { blobs } = await store.list();
   const out = [];
   for (const b of blobs) {
+    if (b.key.startsWith('_')) continue; // skip internal meta keys
     const p = await store.get(b.key, { type: 'json' });
     if (p && p.status !== 'archived') out.push(p);
   }
