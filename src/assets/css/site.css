@@ -507,6 +507,12 @@
   display: flex;
   justify-content: center;
   padding: var(--space-5) var(--space-8) 0;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: linear-gradient(to bottom, var(--color-bg) 70%, rgba(26, 23, 20, 0));
+  backdrop-filter: blur(6px);
+  padding-bottom: var(--space-3);
 }
 .product-grid {
   display: grid;

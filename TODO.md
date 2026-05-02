@@ -42,19 +42,22 @@
 
 ## Phase 2 — Commerce
 
-- [ ] **Shop** (`src/shop.html`) — product grid, skeleton load, filter pills
-- [ ] Snipcart integration with **Square** as the payment gateway (Stripe replaced — see `docs/decisions/square-vs-stripe.md`)
-- [ ] Snipcart CSS overrides to match palette
-- [ ] `data-item-url` validation endpoint live (`/api/products/:id`)
-- [ ] Order webhook → SMS to Drew (`/api/order-notify`)
+- [x] **Shop** ([src/shop.html](src/shop.html)) — product grid, skeleton load, filter pills (all/cutting-boards/charcuterie/furniture/custom), sticky filter bar, archived items hidden, out-of-stock disables Add-to-Cart
+- [~] Snipcart integration with **Square** as the payment gateway — code wired (v3.7.1, `loadStrategy: on-user-interaction`) via runtime config from [/api/public-config](src/netlify/functions/public-config.mjs); awaiting Drew's Square account + Snipcart dashboard config to set `SNIPCART_PUBLIC_KEY` env var
+- [x] Snipcart CSS overrides to match palette — full token map in [snipcart.css](src/assets/css/snipcart.css) (buttons, inputs, modal, badges, links, typography)
+- [x] `data-item-url` validation endpoint live ([/api/products/:id](src/netlify/functions/products.mjs)) — returns Snipcart-formatted JSON via `toSnipcartProduct()`
+- [x] Order webhook → SMS to Drew ([/api/order-notify](src/netlify/functions/order-notify.mjs)) — includes Snipcart `X-Snipcart-RequestToken` signature verification against `requestvalidation` API; rejects 401 if `SNIPCART_SECRET` missing or token invalid
+- [x] Runtime Snipcart key bootstrap — [commerce.js](src/assets/js/commerce.js) fetches `/api/public-config` and injects script + stylesheet (no build-time placeholder substitution needed; checkout disables gracefully when key absent)
 
 ## Phase 3 — Admin Panel
 
-- [ ] **Admin login** (`src/admin/index.html`) — password gate, sessionStorage
-- [ ] Product list with filters
-- [ ] Edit/Create drawer (slide-in from right)
-- [ ] Image upload → Cloudflare R2
-- [ ] Soft-delete (archive) flow
+- [x] **Admin login** ([src/admin/index.html](src/admin/index.html)) — password gate, sessionStorage, shake-on-error
+- [x] Product list with filters — search + status + category, status dot indicators, thumbnails
+- [x] Edit/Create drawer (slide-in from right) — full field set, pill-radio status, pendingImages handling
+- [x] Image upload → Cloudflare R2 (via [admin-upload.mjs](src/netlify/functions/admin-upload.mjs)) — client wired; awaiting R2 credentials to test live
+- [x] Soft-delete (archive) flow — archive button on each row + restore button on archived; uses DELETE on [admin-products.mjs](src/netlify/functions/admin-products.mjs) which sets `status: archived`
+- [x] Leads view — wired to new [/api/admin/leads](src/netlify/functions/admin-leads.mjs); displays tel:/mailto: links
+- [x] Admin sidebar logo fix — swapped to [logo-mark.png](src/assets/images/logo-mark.png) (cream silhouette), removed broken `brightness(0) invert(1)` filter
 
 ## Phase 4 — Backend
 
@@ -62,18 +65,21 @@
 - [~] `admin-products.mjs` — auth via `X-Admin-Key`, full CRUD on Netlify Blobs — **stub written**
 - [~] `admin-upload.mjs` — multipart → R2 — **stub written, needs R2 bucket + creds to test**
 - [~] `quote-request.mjs` — POST → Twilio SMS + Blobs `leads` store — **stub written**
-- [~] `order-notify.mjs` — Snipcart webhook → Twilio SMS — **stub written, needs signature verification before launch**
+- [~] `order-notify.mjs` — Snipcart webhook → Twilio SMS — **signature verification implemented; needs live webhook smoke test once Snipcart dashboard is configured**
 - [~] `seed-products.mjs` — one-shot bootstrap loader (admin-key gated) — **stub written**
+- [x] `public-config.mjs` — public-safe runtime config (Snipcart public key, site URL) consumed by [commerce.js](src/assets/js/commerce.js)
 
 ## Phase 5 — Polish
 
-- [~] SEO: per-page `<title>`, meta description, OG image — **basic tags in place; needs OG image asset + per-page descriptions tightened**
+- [x] SEO: per-page `<title>`, meta description, OG/Twitter tags, canonical URLs — all 7 pages updated; descriptions tightened to Eastern Oregon / service-specific copy
+- [x] OG image — [og-image.jpg](src/assets/images/og-image.jpg) generated at 1200×630 with overlay + branding
 - [x] `sitemap.xml`, `robots.txt`
-- [ ] Favicon + Apple touch icon (derived from logo)
-- [ ] Mobile QA at 390 / 768 / 1024 / 1440
-- [ ] Lighthouse pass (Perf, A11y, SEO each ≥ 90)
-- [~] Form spam protection — **honeypot wired in `contact.js` + `quote-request.mjs`; Netlify spam filter still pending**
-- [x] 404 page (`src/404.html`)
+- [x] Favicon + Apple touch icon — generated [icon-32.png](src/assets/images/icon-32.png), [icon-180.png](src/assets/images/icon-180.png), [icon-192.png](src/assets/images/icon-192.png), [icon-512.png](src/assets/images/icon-512.png) from cream logo mark on dark amber-craftsman field; wired into all pages
+- [ ] Mobile QA at 390 / 768 / 1024 / 1440 — **needs live preview, awaiting Netlify deploy**
+- [ ] Lighthouse pass (Perf, A11y, SEO each ≥ 90) — **needs live deploy**
+- [x] Form spam protection — honeypot `bot-field` in [contact.html](src/contact.html) and short-circuited in [quote-request.mjs](src/netlify/functions/quote-request.mjs); Netlify Forms attribute present (will activate on deploy)
+- [x] 404 page ([src/404.html](src/404.html))
+- [x] Sticky shop filter bar with backdrop-blur
 
 ## Phase 6 — Deploy
 

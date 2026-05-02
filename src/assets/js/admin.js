@@ -134,6 +134,9 @@
         </td>
         <td style="text-align:right;">
           <button class="btn-admin-ghost" data-action="edit">Edit</button>
+          ${p.status === 'archived'
+            ? `<button class="btn-admin-ghost" data-action="unarchive" title="Restore">⤴</button>`
+            : `<button class="btn-admin-ghost" data-action="archive" title="Archive">✕</button>`}
         </td>
       </tr>
     `).join('');
@@ -142,6 +145,34 @@
       b.addEventListener('click', () => {
         const id = b.closest('tr').dataset.id;
         openDrawer(products.find((p) => p.id === id));
+      });
+    });
+    tbody.querySelectorAll('button[data-action="archive"]').forEach((b) => {
+      b.addEventListener('click', async () => {
+        const id = b.closest('tr').dataset.id;
+        const p = products.find((x) => x.id === id);
+        if (!p) return;
+        if (!confirm(`Archive "${p.name}"? It will be hidden from the public shop.`)) return;
+        try {
+          await api(`/api/admin/products/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          toast('Archived.');
+          loadProducts();
+        } catch (err) { toast('Archive failed: ' + (err.message || ''), true); }
+      });
+    });
+    tbody.querySelectorAll('button[data-action="unarchive"]').forEach((b) => {
+      b.addEventListener('click', async () => {
+        const id = b.closest('tr').dataset.id;
+        const p = products.find((x) => x.id === id);
+        if (!p) return;
+        try {
+          await api(`/api/admin/products/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ ...p, status: 'available' }),
+          });
+          toast('Restored.');
+          loadProducts();
+        } catch (err) { toast('Restore failed: ' + (err.message || ''), true); }
       });
     });
   }
@@ -278,24 +309,24 @@
   // ── Leads ──────────────────────────────────────────────
   async function loadLeads() {
     try {
-      const leads = await api('/api/admin/products?leads=1').catch(() => []);
-      // NOTE: leads endpoint is not yet implemented; placeholder rendering.
+      const leads = await api('/api/admin/leads');
       const tbody = $('#leads-tbody');
       if (!Array.isArray(leads) || !leads.length) {
-        tbody.innerHTML = `<tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">No leads yet (or endpoint not yet wired).</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">No leads yet.</td></tr>`;
         return;
       }
       tbody.innerHTML = leads.map((l) => `
         <tr>
           <td>${new Date(l.created_at).toLocaleString()}</td>
-          <td>${l.firstName} ${l.lastName}</td>
-          <td>${l.service}</td>
-          <td>${l.phone}</td>
-          <td>${l.email}</td>
+          <td>${[l.firstName, l.lastName].filter(Boolean).join(' ') || '—'}</td>
+          <td>${l.service || '—'}</td>
+          <td>${l.phone ? `<a href="tel:${l.phone}" style="color:var(--color-accent);">${l.phone}</a>` : '—'}</td>
+          <td>${l.email ? `<a href="mailto:${l.email}" style="color:var(--color-accent);">${l.email}</a>` : '—'}</td>
         </tr>
       `).join('');
     } catch (err) {
       console.error(err);
+      $('#leads-tbody').innerHTML = `<tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Could not load leads.</td></tr>`;
     }
   }
 

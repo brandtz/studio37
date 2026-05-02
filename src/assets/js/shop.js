@@ -114,6 +114,8 @@
       const r = await fetch('/api/products');
       if (!r.ok) throw new Error('HTTP ' + r.status);
       products = await r.json();
+      // Hide archived from public shop
+      products = products.filter((p) => p.status !== 'archived');
       // Sort: available first, then by_request, then out_of_stock
       const order = { available: 0, by_request: 1, out_of_stock: 2, archived: 3 };
       products.sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));

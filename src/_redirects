@@ -8,6 +8,8 @@
 /api/quote-request        /.netlify/functions/quote-request        200
 /api/order-notify         /.netlify/functions/order-notify         200
 /api/seed-products        /.netlify/functions/seed-products        200
+/api/public-config        /.netlify/functions/public-config        200
+/api/admin/leads          /.netlify/functions/admin-leads          200
 
 # 404 fallback
 /*                         /404.html                                 404

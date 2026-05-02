@@ -1,16 +1,41 @@
 // POST /api/order-notify
 // Snipcart webhook receiver. Sends an SMS to Drew when an order is completed.
 // Configure this endpoint in Snipcart's dashboard under Account → Webhooks.
+//
+// Signature verification: Snipcart sends `X-Snipcart-RequestToken` on every webhook.
+// We validate it against https://app.snipcart.com/api/requestvalidation/{token}
+// using SNIPCART_SECRET as HTTP Basic auth (username=secret, password empty).
 
 import { json } from './_lib/store.mjs';
 import twilio from 'twilio';
 
+async function verifySnipcartRequest(token) {
+  const secret = process.env.SNIPCART_SECRET;
+  if (!secret) {
+    console.warn('[order-notify] SNIPCART_SECRET not set — refusing webhook');
+    return false;
+  }
+  if (!token) return false;
+  try {
+    const r = await fetch(`https://app.snipcart.com/api/requestvalidation/${encodeURIComponent(token)}`, {
+      headers: {
+        Authorization: 'Basic ' + Buffer.from(`${secret}:`).toString('base64'),
+        Accept: 'application/json',
+      },
+    });
+    return r.ok;
+  } catch (e) {
+    console.error('[order-notify] verification request failed', e);
+    return false;
+  }
+}
+
 export default async (req) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
-  // Optional: verify Snipcart signature header. Snipcart provides
-  // `X-Snipcart-RequestToken` which can be validated against the public API.
-  // For now we accept and log; tighten before launch.
+  const token = req.headers.get('x-snipcart-requesttoken');
+  const verified = await verifySnipcartRequest(token);
+  if (!verified) return json({ error: 'invalid_signature' }, 401);
 
   const evt = await req.json().catch(() => null);
   if (!evt || evt.eventName !== 'order.completed') {

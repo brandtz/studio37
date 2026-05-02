@@ -53,6 +53,16 @@
   to = "/.netlify/functions/seed-products"
   status = 200
 
+[[redirects]]
+  from = "/api/public-config"
+  to = "/.netlify/functions/public-config"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/leads"
+  to = "/.netlify/functions/admin-leads"
+  status = 200
+
 # SPA-style fallback for /admin (single-page admin app)
 [[redirects]]
   from = "/admin/*"

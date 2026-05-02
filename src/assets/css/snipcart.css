@@ -1,0 +1,70 @@
+/* Studio 37 — Snipcart palette overrides
+ * Snipcart v3 reads CSS custom properties off :root for theming.
+ * These match our amber-on-craftsman palette. */
+
+:root {
+  /* Surfaces */
+  --color-default:                #f0ebe3;
+  --color-alt:                    #9e9287;
+  --color-default-bg:             #1a1714;
+  --color-alt-bg:                 #231f1b;
+  --color-default-tooltip-bg:     #2e2925;
+
+  /* Inputs */
+  --color-input-default:          #f0ebe3;
+  --color-input-default-bg:       #2a2520;
+  --color-input-icon:             #9e9287;
+  --color-input-focus:            #f0ebe3;
+  --color-input-focus-bg:         #2e2925;
+  --color-input-error:            #c0392b;
+  --color-inputLabel:             #9e9287;
+  --color-inputLabel-focus:       #c8864a;
+  --borderColor-input:            rgba(200, 134, 74, 0.18);
+  --borderColor-input-focus:      #c8864a;
+
+  /* Primary buttons (Add to Cart, Checkout, Pay) */
+  --color-buttonPrimary:          #1a1714;
+  --color-buttonPrimary-hover:    #1a1714;
+  --color-buttonPrimary-active:   #1a1714;
+  --bgColor-buttonPrimary:        #c8864a;
+  --bgColor-buttonPrimary-hover:  #dfa06a;
+  --bgColor-buttonPrimary-active: #a8683a;
+  --borderColor-buttonPrimary:    #c8864a;
+
+  /* Secondary / ghost */
+  --color-buttonSecondary:        #f0ebe3;
+  --bgColor-buttonSecondary:      transparent;
+  --borderColor-buttonSecondary:  rgba(240, 235, 227, 0.3);
+
+  /* Links */
+  --color-link:                   #c8864a;
+  --color-link-hover:             #dfa06a;
+  --color-link-active:            #a8683a;
+  --color-link-focus:             #dfa06a;
+
+  /* Modal */
+  --color-modal:                  #f0ebe3;
+  --bgColor-modal:                #1a1714;
+  --bgColor-modalVeil:            rgba(10, 8, 6, 0.7);
+
+  /* Badges / icons */
+  --color-icon:                   #c8864a;
+  --color-badge:                  #1a1714;
+  --bgColor-badge:                #c8864a;
+
+  /* Radius — match site */
+  --borderRadius-s:               4px;
+  --borderRadius-m:               4px;
+  --borderRadius-l:               8px;
+
+  /* Typography */
+  --fontFamily-default:           'DM Sans', system-ui, sans-serif;
+  --fontFamily-display:           'Cormorant Garamond', Georgia, serif;
+
+  /* Cart side panel header */
+  --color-headerCart:             #f0ebe3;
+  --bgColor-headerCart:           #231f1b;
+
+  /* Discount / promo */
+  --color-discount:               #4a9a6a;
+}

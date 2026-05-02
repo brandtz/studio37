@@ -5,36 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Shop &mdash; Studio 37 Custom Designs</title>
   <meta name="description" content="Handcrafted small goods, cutting boards, charcuterie, and gift pieces, ready to ship." />
-  <link rel="icon" href="/assets/images/logo.png" />
+  <link rel="canonical" href="https://studio37customdesigns.com/shop" />
+  <meta property="og:title" content="Shop — Studio 37 Custom Designs" />
+  <meta property="og:description" content="Handcrafted small goods, cutting boards, charcuterie boards, and gift pieces, ready to ship." />
+  <meta property="og:image" content="/assets/images/og-image.jpg" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://studio37customdesigns.com/shop" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/icon-32.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/images/icon-180.png" />
   <link rel="stylesheet" href="/assets/css/tokens.css" />
   <link rel="stylesheet" href="/assets/css/site.css" />
+  <link rel="stylesheet" href="/assets/css/snipcart.css" />
+  <link rel="preconnect" href="https://cdn.snipcart.com" />
   <script defer src="/assets/js/site.js"></script>
   <script defer src="/assets/js/shop.js"></script>
-
-  <!-- Snipcart (Square configured as the payment gateway in the Snipcart dashboard) -->
-  <script>
-    window.SnipcartSettings = {
-      publicApiKey: '__SNIPCART_PUBLIC_KEY__',
-      loadStrategy: 'on-user-interaction',
-      currency: 'usd'
-    };
-  </script>
-  <script async src="https://cdn.snipcart.com/themes/v3.7.1/default/snipcart.js"></script>
-  <link rel="preconnect" href="https://cdn.snipcart.com" />
-  <link rel="stylesheet" href="https://cdn.snipcart.com/themes/v3.7.1/default/snipcart.css" />
-  <style>
-    /* Snipcart palette overrides — match site palette */
-    :root {
-      --color-default: #f0ebe3;
-      --color-alt: #9e9287;
-      --color-input-default: #f0ebe3;
-      --color-buttonPrimary: #c8864a;
-      --color-buttonPrimary-hover: #dfa06a;
-      --color-buttonPrimary-active: #a8683a;
-      --color-link: #c8864a;
-      --borderRadius-md: 4px;
-    }
-  </style>
+  <!-- Snipcart bootstrap: fetches public key from /api/public-config, then loads v3.7.1.
+       Square is configured as the payment gateway in the Snipcart dashboard. -->
+  <script defer src="/assets/js/commerce.js"></script>
 </head>
 <body class="grain">
   <header class="nav"></header>

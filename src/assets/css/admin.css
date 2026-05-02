@@ -61,8 +61,7 @@ body.admin {
 }
 .admin-sidebar-logo img {
   height: 36px;
-  filter: brightness(0) invert(1);
-  opacity: 0.85;
+  opacity: 0.95;
 }
 .admin-sidebar-logo .label {
   display: block;
