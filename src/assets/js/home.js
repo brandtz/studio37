@@ -34,50 +34,61 @@ const REVIEWS = [
 (function mountReviews() {
   const carousel = document.getElementById('reviews-carousel');
   const dotsEl   = document.getElementById('reviews-dots');
-  if (!carousel || !REVIEWS.length) return;
+  if (!carousel) return;
 
   let current = 0;
   let timer;
 
   const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
 
-  const track = document.createElement('div');
-  track.className = 'reviews-track';
-  REVIEWS.forEach((r) => {
-    const card = document.createElement('div');
-    card.className = 'review-card';
-    card.innerHTML = `
-      <div class="review-stars" aria-label="${r.stars} out of 5 stars">${stars(r.stars)}</div>
-      <p class="review-text">${r.text}</p>
-      <p class="review-byline"><strong>${r.name}</strong> &mdash; ${r.location}</p>
-    `;
-    track.appendChild(card);
-  });
-  carousel.appendChild(track);
+  function mount(items) {
+    if (!items.length) return;
 
-  // Dots
-  const dots = REVIEWS.map((_, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'reviews-dot' + (i === 0 ? ' active' : '');
-    btn.setAttribute('aria-label', `Review ${i + 1}`);
-    btn.addEventListener('click', () => goTo(i));
-    dotsEl.appendChild(btn);
-    return btn;
-  });
+    const track = document.createElement('div');
+    track.className = 'reviews-track';
+    items.forEach((r) => {
+      const card = document.createElement('div');
+      card.className = 'review-card';
+      card.innerHTML = `
+        <div class="review-stars" aria-label="${r.stars} out of 5 stars">${stars(r.stars)}</div>
+        <p class="review-text">${r.text}</p>
+        <p class="review-byline"><strong>${r.name}</strong> &mdash; ${r.location || ''}</p>
+      `;
+      track.appendChild(card);
+    });
+    carousel.innerHTML = '';
+    dotsEl.innerHTML = '';
+    carousel.appendChild(track);
 
-  function goTo(idx) {
-    current = (idx + REVIEWS.length) % REVIEWS.length;
-    track.style.transform = `translateX(-${current * 100}%)`;
-    dots.forEach((d, i) => d.classList.toggle('active', i === current));
-    clearInterval(timer);
-    timer = setInterval(() => goTo(current + 1), 5000);
+    const dots = items.map((_, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'reviews-dot' + (i === 0 ? ' active' : '');
+      btn.setAttribute('aria-label', `Review ${i + 1}`);
+      btn.addEventListener('click', () => goTo(i));
+      dotsEl.appendChild(btn);
+      return btn;
+    });
+
+    function goTo(idx) {
+      current = (idx + items.length) % items.length;
+      track.style.transform = `translateX(-${current * 100}%)`;
+      dots.forEach((d, i) => d.classList.toggle('active', i === current));
+      clearInterval(timer);
+      timer = setInterval(() => goTo(current + 1), 5000);
+    }
+
+    carousel.addEventListener('mouseenter', () => clearInterval(timer));
+    carousel.addEventListener('mouseleave', () => {
+      timer = setInterval(() => goTo(current + 1), 5000);
+    });
+
+    goTo(0);
   }
 
-  // Pause on hover / touch
-  carousel.addEventListener('mouseenter', () => clearInterval(timer));
-  carousel.addEventListener('mouseleave', () => { timer = setInterval(() => goTo(current + 1), 5000); });
-
-  goTo(0);
+  fetch('/api/reviews')
+    .then((r) => (r.ok ? r.json() : Promise.reject()))
+    .then((items) => mount(Array.isArray(items) && items.length ? items : REVIEWS))
+    .catch(() => mount(REVIEWS));
 }());
 
 // ── FEATURED SHOP STRIP ───────────────────────────────────────────────────────

@@ -40,12 +40,19 @@ const ALL_REVIEWS = [
 
   const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
 
-  grid.innerHTML = ALL_REVIEWS.map((r) => `
-    <div class="review-card-full">
-      <div class="review-stars" aria-label="${r.stars} out of 5 stars">${stars(r.stars)}</div>
-      <p class="review-text">${r.text}</p>
-      <p class="review-byline"><strong>${r.name}</strong> &mdash; ${r.location}</p>
-      ${r.project ? `<p style="font-size:var(--text-xs);color:var(--color-accent);letter-spacing:0.08em;text-transform:uppercase;margin-top:var(--space-1);">${r.project}</p>` : ''}
-    </div>
-  `).join('');
+  function render(items) {
+    grid.innerHTML = items.map((r) => `
+      <div class="review-card-full">
+        <div class="review-stars" aria-label="${r.stars} out of 5 stars">${stars(r.stars)}</div>
+        <p class="review-text">${r.text}</p>
+        <p class="review-byline"><strong>${r.name}</strong> &mdash; ${r.location || ''}</p>
+        ${r.project ? `<p style="font-size:var(--text-xs);color:var(--color-accent);letter-spacing:0.08em;text-transform:uppercase;margin-top:var(--space-1);">${r.project}</p>` : ''}
+      </div>
+    `).join('');
+  }
+
+  fetch('/api/reviews')
+    .then((r) => (r.ok ? r.json() : Promise.reject()))
+    .then((items) => render(Array.isArray(items) && items.length ? items : ALL_REVIEWS))
+    .catch(() => render(ALL_REVIEWS));
 }());

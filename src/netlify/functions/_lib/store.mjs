@@ -2,13 +2,17 @@
 
 import { getStore } from '@netlify/blobs';
 import seedProducts from './products.seed.json' with { type: 'json' };
+import seedReviews from './reviews.seed.json' with { type: 'json' };
 
 export const PRODUCT_STORE = 'products';
 export const LEAD_STORE = 'leads';
+export const REVIEW_STORE = 'reviews';
 
 // Bump this whenever the seed data changes — triggers auto-migration on next cold start.
 const SEED_VERSION = 2;
 const SEED_VERSION_KEY = '_seed_version';
+const REVIEW_SEED_VERSION = 1;
+const REVIEW_SEED_VERSION_KEY = '_review_seed_version';
 
 export function productStore() {
   return getStore({ name: PRODUCT_STORE, consistency: 'strong' });
@@ -16,6 +20,10 @@ export function productStore() {
 
 export function leadStore() {
   return getStore({ name: LEAD_STORE, consistency: 'strong' });
+}
+
+export function reviewStore() {
+  return getStore({ name: REVIEW_STORE, consistency: 'strong' });
 }
 
 export const json = (body, status = 200, extra = {}) =>
@@ -71,6 +79,33 @@ export async function ensureProductSeeded(force = false) {
   }
   await store.setJSON(SEED_VERSION_KEY, { v: SEED_VERSION });
 
+  return { seeded: true, written, count: written };
+}
+
+export async function ensureReviewSeeded(force = false) {
+  const store = reviewStore();
+
+  if (!force) {
+    const storedVersion = await store.get(REVIEW_SEED_VERSION_KEY, { type: 'json' }).catch(() => null);
+    if (storedVersion?.v === REVIEW_SEED_VERSION) {
+      const existing = await store.list();
+      if (existing.blobs?.filter((b) => b.key !== REVIEW_SEED_VERSION_KEY).length) {
+        return { seeded: false, written: 0 };
+      }
+    }
+  }
+
+  const now = nowIso();
+  let written = 0;
+  for (const review of seedReviews) {
+    await store.setJSON(review.id, {
+      ...review,
+      created_at: review.created_at || now,
+      updated_at: now,
+    });
+    written++;
+  }
+  await store.setJSON(REVIEW_SEED_VERSION_KEY, { v: REVIEW_SEED_VERSION });
   return { seeded: true, written, count: written };
 }
 

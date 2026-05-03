@@ -40,6 +40,14 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><polyline points="3.3 7 12 12 20.7 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg>
           Products
         </a></li>
+        <li><a href="#media" data-section="media">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-4-4L5 21"/></svg>
+          Media
+        </a></li>
+        <li><a href="#reviews" data-section="reviews">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5h16v10H7l-3 3V5Z"/><path d="M9 9h6"/><path d="M9 12h4"/></svg>
+          Reviews
+        </a></li>
         <li><a href="#orders" data-section="orders">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           Orders
@@ -61,6 +69,7 @@
         <h2 id="section-title">Products</h2>
         <div class="admin-topbar-actions">
           <button class="btn-admin" id="new-product-btn">+ New Product</button>
+          <button class="btn-admin" id="new-review-btn" hidden>+ New Review</button>
         </div>
       </header>
       <div class="admin-content">
@@ -95,6 +104,39 @@
               </tr>
             </thead>
             <tbody id="products-tbody">
+              <tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Loading&hellip;</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- MEDIA SECTION -->
+        <section id="section-media" hidden>
+          <div class="admin-toolbar">
+            <select id="media-product-select">
+              <option value="">Select a product</option>
+            </select>
+            <label class="upload-zone" id="media-upload-zone" style="max-width:360px;">
+              <input type="file" id="media-upload-input" accept="image/*" multiple style="display:none;" />
+              <span>Upload photos to selected product</span>
+            </label>
+          </div>
+          <div id="media-empty" style="color:var(--color-text-muted);padding:var(--space-4) 0;">Select a product to manage photos.</div>
+          <div class="image-thumbs" id="media-thumbs"></div>
+        </section>
+
+        <!-- REVIEWS SECTION -->
+        <section id="section-reviews" hidden>
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th style="width:120px;">Rating</th>
+                <th>Review</th>
+                <th style="width:160px;">Author</th>
+                <th style="width:120px;">Status</th>
+                <th style="width:120px;text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="reviews-tbody">
               <tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Loading&hellip;</td></tr>
             </tbody>
           </table>
@@ -196,6 +238,54 @@
     <footer class="drawer-foot">
       <button class="btn-admin-ghost" type="button" id="drawer-cancel">Cancel</button>
       <button class="btn-admin" type="submit" form="product-form">Save Product</button>
+    </footer>
+  </aside>
+
+  <!-- ── REVIEW DRAWER ─────────────────────────────────── -->
+  <div class="drawer-overlay" id="review-drawer-overlay"></div>
+  <aside class="drawer" id="review-drawer" aria-hidden="true">
+    <header class="drawer-head">
+      <h3 id="review-drawer-title">Edit Review</h3>
+      <button class="btn-admin-ghost" id="review-drawer-close" aria-label="Close">&times;</button>
+    </header>
+    <form class="drawer-body" id="review-form">
+      <input type="hidden" id="r-id" />
+
+      <div class="form-field">
+        <label class="form-label" for="r-name">Customer Name</label>
+        <input class="form-input" id="r-name" required />
+      </div>
+
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label" for="r-location">Location</label>
+          <input class="form-input" id="r-location" placeholder="Springfield, OR" />
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="r-stars">Stars (1-5)</label>
+          <input class="form-input" id="r-stars" type="number" min="1" max="5" value="5" required />
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="r-project">Project</label>
+        <input class="form-input" id="r-project" placeholder="Custom Built-in Cabinetry" />
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="r-text">Review Text</label>
+        <textarea class="form-textarea" id="r-text" required></textarea>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">
+          <input type="checkbox" id="r-published" checked /> Published
+        </label>
+      </div>
+    </form>
+    <footer class="drawer-foot">
+      <button class="btn-admin-ghost" type="button" id="review-drawer-cancel">Cancel</button>
+      <button class="btn-admin" type="submit" form="review-form">Save Review</button>
     </footer>
   </aside>
 

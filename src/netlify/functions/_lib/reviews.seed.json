@@ -1,0 +1,42 @@
+[
+  {
+    "id": "sarah-builtin",
+    "name": "Sarah M.",
+    "location": "Springfield, OR",
+    "project": "Custom Built-in Cabinetry",
+    "stars": 5,
+    "text": "Drew built us a custom entertainment center with sliding barn doors — the craftsmanship is unreal. Every detail was perfect and he finished ahead of schedule.",
+    "published": true,
+    "created_at": "2026-05-03T00:00:00.000Z"
+  },
+  {
+    "id": "jake-tori-boards",
+    "name": "Jake & Tori R.",
+    "location": "Eugene, OR",
+    "project": "Black Walnut Cutting Boards",
+    "stars": 5,
+    "text": "We ordered a set of Black Walnut cutting boards as wedding gifts and everyone was blown away. High-quality, beautiful grain, and shipped fast. Will absolutely order again.",
+    "published": true,
+    "created_at": "2026-05-03T00:00:01.000Z"
+  },
+  {
+    "id": "chris-slab",
+    "name": "Chris D.",
+    "location": "Bend, OR",
+    "project": "Slab Flattening",
+    "stars": 5,
+    "text": "Brought in a slab I've had for years and Drew flattened it perfectly. Turned it into a dining table top. The whole process was easy, communication was great, and the result is stunning.",
+    "published": true,
+    "created_at": "2026-05-03T00:00:02.000Z"
+  },
+  {
+    "id": "melissa-office",
+    "name": "Melissa K.",
+    "location": "Corvallis, OR",
+    "project": "Home Office Build-out",
+    "stars": 5,
+    "text": "Studio 37 built out our entire home office — floating shelves, a custom desk, and built-in cabinetry. Drew nailed the design on the first pass. Highly recommend.",
+    "published": true,
+    "created_at": "2026-05-03T00:00:03.000Z"
+  }
+]

@@ -10,6 +10,9 @@
 /api/seed-products        /.netlify/functions/seed-products        200
 /api/public-config        /.netlify/functions/public-config        200
 /api/admin/leads          /.netlify/functions/admin-leads          200
+/api/reviews              /.netlify/functions/reviews              200
+/api/admin/reviews/*      /.netlify/functions/admin-reviews?id=:splat 200
+/api/admin/reviews        /.netlify/functions/admin-reviews        200
 
 # 404 fallback
 /*                         /404.html                                 404

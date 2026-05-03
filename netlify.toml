@@ -63,6 +63,21 @@
   to = "/.netlify/functions/admin-leads"
   status = 200
 
+[[redirects]]
+  from = "/api/reviews"
+  to = "/.netlify/functions/reviews"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/reviews"
+  to = "/.netlify/functions/admin-reviews"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/reviews/:id"
+  to = "/.netlify/functions/admin-reviews?id=:id"
+  status = 200
+
 # SPA-style fallback for /admin (single-page admin app)
 [[redirects]]
   from = "/admin/*"
