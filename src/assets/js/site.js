@@ -52,7 +52,7 @@
     <div class="footer-inner">
       <div class="footer-brand">
         <img src="/assets/images/logo-mark.png" alt="Studio 37 Custom Designs" />
-        <p>Custom woodworking, cabinetry, and design — handcrafted in Eastern Oregon.</p>
+        <p>Custom woodworking, cabinetry, and design — handcrafted in Springfield, Oregon.</p>
         <div class="footer-social">
           <a href="https://www.instagram.com/studio37_customwoodworking" target="_blank" rel="noopener" aria-label="Instagram">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -83,7 +83,8 @@
         <h4>Connect</h4>
         <ul>
           <li><a href="mailto:Drew@studio37customdesigns.com">Drew@studio37customdesigns.com</a></li>
-          <li>Eastern Oregon · PNW</li>
+          <li>Springfield, Oregon</li>
+          <li><a href="tel:+15415147720">(541) 514-7720</a></li>
           <li><a href="/contact" class="footer-cta">Request a Quote &rarr;</a></li>
         </ul>
       </div>
