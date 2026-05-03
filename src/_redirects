@@ -14,5 +14,15 @@
 /api/admin/reviews/*      /.netlify/functions/admin-reviews?id=:splat 200
 /api/admin/reviews        /.netlify/functions/admin-reviews        200
 
+/api/auth/login           /.netlify/functions/auth-login           200
+/api/auth/set-password    /.netlify/functions/auth-set-password    200
+/api/auth/logout          /.netlify/functions/auth-logout          200
+/api/auth/me              /.netlify/functions/auth-me              200
+/api/auth/request-access  /.netlify/functions/auth-request-access  200
+
+/api/admin/users          /.netlify/functions/admin-users          200
+/api/admin/users/:email/:action  /.netlify/functions/admin-users?email=:email&action=:action  200
+/api/admin/users/:email   /.netlify/functions/admin-users?email=:email  200
+
 # 404 fallback
 /*                         /404.html                                 404

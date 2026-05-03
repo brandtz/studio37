@@ -2,11 +2,12 @@
 // Returns all submitted quote-request leads (most recent first).
 // Auth: X-Admin-Key header.
 
-import { leadStore, json, requireAdmin } from './_lib/store.mjs';
+import { leadStore, json } from './_lib/store.mjs';
+import { requireSession } from './_lib/auth.mjs';
 
 export default async (req) => {
-  const denied = requireAdmin(req);
-  if (denied) return denied;
+  const auth = await requireSession(req);
+  if (auth.error) return auth.error;
 
   if (req.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
 

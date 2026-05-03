@@ -46,6 +46,11 @@ body.admin {
   margin-top: var(--space-3);
   min-height: 1.2em;
 }
+.admin-login-success {
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+  margin-top: var(--space-3);
+}
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   20%, 60% { transform: translateX(-8px); }

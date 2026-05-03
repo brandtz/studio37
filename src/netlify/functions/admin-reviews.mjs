@@ -1,11 +1,12 @@
 // /api/admin/reviews[?id=:id]
-// Admin CRUD on reviews blob store. Auth via X-Admin-Key.
+// Admin CRUD on reviews blob store. Session-gated.
 
-import { ensureReviewSeeded, reviewStore, json, requireAdmin, nowIso, slugify } from './_lib/store.mjs';
+import { ensureReviewSeeded, reviewStore, json, nowIso, slugify } from './_lib/store.mjs';
+import { requireSession } from './_lib/auth.mjs';
 
 export default async (req) => {
-  const auth = requireAdmin(req);
-  if (auth) return auth;
+  const auth = await requireSession(req);
+  if (auth.error) return auth.error;
 
   await ensureReviewSeeded();
 

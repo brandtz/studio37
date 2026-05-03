@@ -78,6 +78,48 @@
   to = "/.netlify/functions/admin-reviews?id=:id"
   status = 200
 
+# Auth
+[[redirects]]
+  from = "/api/auth/login"
+  to = "/.netlify/functions/auth-login"
+  status = 200
+
+[[redirects]]
+  from = "/api/auth/set-password"
+  to = "/.netlify/functions/auth-set-password"
+  status = 200
+
+[[redirects]]
+  from = "/api/auth/logout"
+  to = "/.netlify/functions/auth-logout"
+  status = 200
+
+[[redirects]]
+  from = "/api/auth/me"
+  to = "/.netlify/functions/auth-me"
+  status = 200
+
+[[redirects]]
+  from = "/api/auth/request-access"
+  to = "/.netlify/functions/auth-request-access"
+  status = 200
+
+# Admin user management
+[[redirects]]
+  from = "/api/admin/users"
+  to = "/.netlify/functions/admin-users"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/users/:email"
+  to = "/.netlify/functions/admin-users?email=:email"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/users/:email/:action"
+  to = "/.netlify/functions/admin-users?email=:email&action=:action"
+  status = 200
+
 # SPA-style fallback for /admin (single-page admin app)
 [[redirects]]
   from = "/admin/*"

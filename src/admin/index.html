@@ -14,17 +14,76 @@
 
   <!-- ── LOGIN VIEW ─────────────────────────────────────── -->
   <section class="admin-login" id="view-login">
-    <form class="admin-login-card" id="login-form">
+    <!-- Sign-in panel -->
+    <form class="admin-login-card" id="login-form" data-panel="signin">
       <img src="/assets/images/logo.png" alt="Studio 37" />
       <h1>Studio 37 Admin</h1>
       <div class="form-field">
-        <label class="form-label" for="adminKey">Password</label>
-        <input class="form-input" id="adminKey" type="password" autocomplete="current-password" required />
+        <label class="form-label" for="loginEmail">Email</label>
+        <input class="form-input" id="loginEmail" type="email" autocomplete="username" required />
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="loginPassword">Password</label>
+        <input class="form-input" id="loginPassword" type="password" autocomplete="current-password" />
+        <small style="color:var(--color-text-muted);font-size:.8rem;">First time signing in? Leave blank.</small>
       </div>
       <button class="btn-primary" style="width:100%;margin-top:var(--space-4);justify-content:center;" type="submit">
-        Enter Admin
+        Sign In
       </button>
       <p class="admin-login-error" id="login-error"></p>
+      <p style="margin-top:var(--space-4);text-align:center;font-size:.85rem;">
+        <a href="#" id="show-request-access" style="color:var(--color-accent);">Request access</a>
+      </p>
+    </form>
+
+    <!-- First-login: set password panel -->
+    <form class="admin-login-card" id="setpass-form" data-panel="setpass" hidden>
+      <img src="/assets/images/logo.png" alt="Studio 37" />
+      <h1>Create your password</h1>
+      <p style="color:var(--color-text-muted);font-size:.9rem;text-align:center;margin:0 0 var(--space-4);">
+        Welcome, <strong id="setpass-email"></strong>. Choose a password to finish setting up your account.
+      </p>
+      <div class="form-field">
+        <label class="form-label" for="setpass1">New password</label>
+        <input class="form-input" id="setpass1" type="password" autocomplete="new-password" minlength="8" required />
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="setpass2">Confirm password</label>
+        <input class="form-input" id="setpass2" type="password" autocomplete="new-password" minlength="8" required />
+      </div>
+      <button class="btn-primary" style="width:100%;margin-top:var(--space-4);justify-content:center;" type="submit">
+        Save &amp; Sign In
+      </button>
+      <p class="admin-login-error" id="setpass-error"></p>
+    </form>
+
+    <!-- Request-access panel -->
+    <form class="admin-login-card" id="request-form" data-panel="request" hidden>
+      <img src="/assets/images/logo.png" alt="Studio 37" />
+      <h1>Request access</h1>
+      <p style="color:var(--color-text-muted);font-size:.9rem;text-align:center;margin:0 0 var(--space-4);">
+        Drew will be notified and can approve your account.
+      </p>
+      <div class="form-field">
+        <label class="form-label" for="reqEmail">Email</label>
+        <input class="form-input" id="reqEmail" type="email" autocomplete="email" required />
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="reqName">Your name (optional)</label>
+        <input class="form-input" id="reqName" type="text" />
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="reqMessage">Message (optional)</label>
+        <textarea class="form-textarea" id="reqMessage" rows="3"></textarea>
+      </div>
+      <button class="btn-primary" style="width:100%;margin-top:var(--space-4);justify-content:center;" type="submit">
+        Submit request
+      </button>
+      <p class="admin-login-error" id="request-error"></p>
+      <p class="admin-login-success" id="request-success" hidden></p>
+      <p style="margin-top:var(--space-4);text-align:center;font-size:.85rem;">
+        <a href="#" id="show-signin" style="color:var(--color-accent);">Back to sign in</a>
+      </p>
     </form>
   </section>
 
@@ -56,8 +115,13 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16v12H5.2L2 19V4Z"/></svg>
           Leads
         </a></li>
+        <li data-nav-users hidden><a href="#users" data-section="users">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Users
+        </a></li>
       </ul>
       <div class="admin-sidebar-foot">
+        <span style="display:block;font-size:.75rem;color:var(--color-text-muted);margin-bottom:var(--space-2);" id="who-am-i"></span>
         <a href="/" target="_blank" rel="noopener">View Site &rarr;</a>
         <br/><br/>
         <a href="#" id="logout">Sign out</a>
@@ -70,6 +134,7 @@
         <div class="admin-topbar-actions">
           <button class="btn-admin" id="new-product-btn">+ New Product</button>
           <button class="btn-admin" id="new-review-btn" hidden>+ New Review</button>
+          <button class="btn-admin" id="new-user-btn" hidden>+ Invite User</button>
         </div>
       </header>
       <div class="admin-content">
@@ -157,6 +222,40 @@
               <tr><th>When</th><th>Name</th><th>Service</th><th>Phone</th><th>Email</th></tr>
             </thead>
             <tbody id="leads-tbody">
+              <tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Loading&hellip;</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- USERS SECTION (super only) -->
+        <section id="section-users" hidden>
+          <h3 style="margin:var(--space-4) 0 var(--space-2);font-size:1rem;color:var(--color-text-muted);">Pending requests</h3>
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Name / Message</th>
+                <th>Requested</th>
+                <th style="width:200px;text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-pending-tbody">
+              <tr><td colspan="4" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Loading&hellip;</td></tr>
+            </tbody>
+          </table>
+
+          <h3 style="margin:var(--space-6) 0 var(--space-2);font-size:1rem;color:var(--color-text-muted);">Active users</h3>
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Last login</th>
+                <th style="width:280px;text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-active-tbody">
               <tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Loading&hellip;</td></tr>
             </tbody>
           </table>

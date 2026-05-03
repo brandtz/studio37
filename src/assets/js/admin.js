@@ -1,9 +1,13 @@
-/* Studio 37 — Admin panel: products, media, reviews, leads */
+/* Studio 37 — Admin panel: products, media, reviews, leads, users.
+   Auth: Bearer JWT in sessionStorage (issued by /api/auth/login). */
 (() => {
-  const SESSION_KEY = 'studio37_admin_key';
-  let adminKey = sessionStorage.getItem(SESSION_KEY) || '';
+  const TOKEN_KEY = 'studio37_session_token';
+  let sessionToken = sessionStorage.getItem(TOKEN_KEY) || '';
+  let me = null; // { email, role }
+
   let products = [];
   let reviews = [];
+  let users = [];
   let editing = null;
   let pendingImages = [];
   let editingReview = null;
@@ -12,24 +16,53 @@
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
+  // ── API helpers ────────────────────────────────────────
   async function api(path, opts = {}) {
     const headers = Object.assign(
       { 'Content-Type': 'application/json' },
       opts.headers || {},
-      { 'X-Admin-Key': adminKey },
     );
+    if (sessionToken) headers['Authorization'] = 'Bearer ' + sessionToken;
     if (opts.body instanceof FormData) delete headers['Content-Type'];
     const r = await fetch(path, Object.assign({}, opts, { headers }));
     if (r.status === 401) {
-      sessionStorage.removeItem(SESSION_KEY);
-      adminKey = '';
+      clearSession();
       showLogin();
       throw new Error('Unauthorized');
     }
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    if (!r.ok) {
+      let msg = 'HTTP ' + r.status;
+      try {
+        const j = await r.json();
+        if (j?.error) msg = j.message || j.error;
+      } catch { /* ignore */ }
+      throw new Error(msg);
+    }
     return r.status === 204 ? null : r.json();
   }
 
+  async function unauthApi(path, opts = {}) {
+    const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    const r = await fetch(path, Object.assign({}, opts, { headers }));
+    let body = null;
+    try { body = await r.json(); } catch { /* ignore */ }
+    return { ok: r.ok, status: r.status, body };
+  }
+
+  // ── session helpers ────────────────────────────────────
+  function setSession(token, user) {
+    sessionToken = token;
+    me = user || null;
+    if (token) sessionStorage.setItem(TOKEN_KEY, token);
+  }
+
+  function clearSession() {
+    sessionToken = '';
+    me = null;
+    sessionStorage.removeItem(TOKEN_KEY);
+  }
+
+  // ── slug / format helpers ──────────────────────────────
   function slugify(s) {
     return (s || '')
       .toLowerCase()
@@ -37,104 +70,154 @@
       .replace(/(^-|-$)/g, '')
       .slice(0, 60);
   }
-
   function fmtMoney(cents) {
     if (cents == null) return '—';
     return '$' + (cents / 100).toFixed(2).replace(/\.00$/, '');
   }
-
-  function stars(n) {
-    return '★'.repeat(n) + '☆'.repeat(5 - n);
+  function stars(n) { return '★'.repeat(n) + '☆'.repeat(5 - n); }
+  function statusLabel(s) {
+    return ({ available: 'Available', out_of_stock: 'Out of Stock', by_request: 'By Request', archived: 'Archived' })[s] || s;
+  }
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    try { return new Date(iso).toLocaleString(); } catch { return iso; }
   }
 
-  function statusLabel(s) {
-    return ({
-      available: 'Available',
-      out_of_stock: 'Out of Stock',
-      by_request: 'By Request',
-      archived: 'Archived',
-    })[s] || s;
+  // ── view switchers ─────────────────────────────────────
+  function showPanel(name) {
+    ['signin', 'setpass', 'request'].forEach((p) => {
+      const el = document.querySelector(`[data-panel="${p}"]`);
+      if (el) el.hidden = p !== name;
+    });
   }
 
   function showLogin() {
     $('#view-login').hidden = false;
     $('#view-dashboard').hidden = true;
+    showPanel('signin');
   }
 
   function showDashboard() {
     $('#view-login').hidden = true;
     $('#view-dashboard').hidden = false;
+    if (me) {
+      $('#who-am-i').textContent = `${me.email} (${me.role})`;
+      const usersNav = document.querySelector('[data-nav-users]');
+      if (usersNav) usersNav.hidden = me.role !== 'super';
+    }
     setSection('products');
   }
 
-  async function uploadOne(file) {
-    const fd = new FormData();
-    fd.append('file', file);
-    const res = await api('/api/admin/upload', { method: 'POST', body: fd });
-    return res?.url || '';
-  }
-
-  async function saveProduct(product) {
-    await api(`/api/admin/products/${encodeURIComponent(product.id)}`, {
-      method: 'PUT',
-      body: JSON.stringify(product),
-    });
-  }
-
-  function setSection(section) {
-    const sectionMap = ['products', 'media', 'reviews', 'orders', 'leads'];
-    sectionMap.forEach((s) => {
-      const el = $(`#section-${s}`);
-      if (el) el.hidden = s !== section;
-    });
-
-    $$('.admin-nav a').forEach((x) => x.classList.toggle('active', x.dataset.section === section));
-    $('#section-title').textContent = ({
-      products: 'Products',
-      media: 'Media',
-      reviews: 'Reviews',
-      orders: 'Orders',
-      leads: 'Leads',
-    })[section] || 'Admin';
-
-    $('#new-product-btn').hidden = section !== 'products';
-    $('#new-review-btn').hidden = section !== 'reviews';
-
-    if (section === 'products') loadProducts();
-    if (section === 'media') loadProducts();
-    if (section === 'reviews') loadReviews();
-    if (section === 'leads') loadLeads();
-  }
-
+  // ── auth flow ──────────────────────────────────────────
   $('#login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const key = $('#adminKey').value.trim();
-    if (!key) return;
-    adminKey = key;
-    try {
-      const r = await fetch('/api/admin/products', { headers: { 'X-Admin-Key': key } });
-      if (r.status === 401) throw new Error('bad key');
-      if (!r.ok) throw new Error('server');
-      sessionStorage.setItem(SESSION_KEY, key);
+    const email = $('#loginEmail').value.trim().toLowerCase();
+    const password = $('#loginPassword').value;
+    $('#login-error').textContent = '';
+
+    const res = await unauthApi('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (res.ok && res.body?.firstLogin) {
+      // Move to set-password panel.
+      $('#setpass-email').textContent = res.body.email;
+      $('#setpass-form').dataset.setupToken = res.body.setupToken;
+      $('#setpass-form').dataset.email = res.body.email;
+      $('#setpass1').value = '';
+      $('#setpass2').value = '';
+      $('#setpass-error').textContent = '';
+      showPanel('setpass');
+      return;
+    }
+
+    if (res.ok && res.body?.token) {
+      setSession(res.body.token, res.body.user);
       $('#login-error').textContent = '';
       showDashboard();
-    } catch (err) {
-      $('#login-error').textContent = 'Incorrect password.';
-      const card = $('.admin-login-card');
-      card.classList.remove('shake');
-      void card.offsetWidth;
-      card.classList.add('shake');
-      adminKey = '';
+      return;
+    }
+
+    if (res.status === 403 && res.body?.error === 'pending') {
+      $('#login-error').textContent = 'Your account is pending approval.';
+    } else if (res.status === 403 && res.body?.error === 'disabled') {
+      $('#login-error').textContent = 'Account disabled. Contact Drew.';
+    } else {
+      $('#login-error').textContent = 'Email or password is incorrect.';
+    }
+    const card = $('#login-form');
+    card.classList.remove('shake');
+    void card.offsetWidth;
+    card.classList.add('shake');
+  });
+
+  $('#setpass-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const setupToken = $('#setpass-form').dataset.setupToken;
+    const p1 = $('#setpass1').value;
+    const p2 = $('#setpass2').value;
+    const errEl = $('#setpass-error');
+    errEl.textContent = '';
+
+    if (p1.length < 8) { errEl.textContent = 'Password must be at least 8 characters.'; return; }
+    if (p1 !== p2)    { errEl.textContent = 'Passwords do not match.'; return; }
+
+    const res = await unauthApi('/api/auth/set-password', {
+      method: 'POST',
+      body: JSON.stringify({ setupToken, password: p1 }),
+    });
+
+    if (res.ok && res.body?.token) {
+      setSession(res.body.token, res.body.user);
+      showDashboard();
+      return;
+    }
+    errEl.textContent = res.body?.message || res.body?.error || 'Could not set password. Please sign in again.';
+    setTimeout(() => showPanel('signin'), 2000);
+  });
+
+  $('#show-request-access').addEventListener('click', (e) => {
+    e.preventDefault();
+    $('#request-error').textContent = '';
+    $('#request-success').hidden = true;
+    showPanel('request');
+  });
+
+  $('#show-signin').addEventListener('click', (e) => {
+    e.preventDefault();
+    showPanel('signin');
+  });
+
+  $('#request-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = $('#reqEmail').value.trim().toLowerCase();
+    const name = $('#reqName').value.trim();
+    const message = $('#reqMessage').value.trim();
+    $('#request-error').textContent = '';
+    $('#request-success').hidden = true;
+
+    const res = await unauthApi('/api/auth/request-access', {
+      method: 'POST',
+      body: JSON.stringify({ email, name, message }),
+    });
+    if (res.ok) {
+      $('#request-success').hidden = false;
+      $('#request-success').textContent = 'Request received. You will be notified once approved.';
+      $('#reqEmail').value = ''; $('#reqName').value = ''; $('#reqMessage').value = '';
+    } else {
+      $('#request-error').textContent = res.body?.message || res.body?.error || 'Could not submit request.';
     }
   });
 
-  $('#logout').addEventListener('click', (e) => {
+  $('#logout').addEventListener('click', async (e) => {
     e.preventDefault();
-    sessionStorage.removeItem(SESSION_KEY);
-    adminKey = '';
+    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch { /* ignore */ }
+    clearSession();
     showLogin();
   });
 
+  // ── nav ────────────────────────────────────────────────
   $$('.admin-nav a').forEach((a) => {
     a.addEventListener('click', (e) => {
       e.preventDefault();
@@ -142,6 +225,32 @@
     });
   });
 
+  function setSection(section) {
+    if (section === 'users' && me?.role !== 'super') section = 'products';
+    const sectionMap = ['products', 'media', 'reviews', 'orders', 'leads', 'users'];
+    sectionMap.forEach((s) => {
+      const el = $(`#section-${s}`);
+      if (el) el.hidden = s !== section;
+    });
+
+    $$('.admin-nav a').forEach((x) => x.classList.toggle('active', x.dataset.section === section));
+    $('#section-title').textContent = ({
+      products: 'Products', media: 'Media', reviews: 'Reviews',
+      orders: 'Orders', leads: 'Leads', users: 'Users',
+    })[section] || 'Admin';
+
+    $('#new-product-btn').hidden = section !== 'products';
+    $('#new-review-btn').hidden = section !== 'reviews';
+    $('#new-user-btn').hidden = section !== 'users';
+
+    if (section === 'products') loadProducts();
+    if (section === 'media')    loadProducts();
+    if (section === 'reviews')  loadReviews();
+    if (section === 'leads')    loadLeads();
+    if (section === 'users')    loadUsers();
+  }
+
+  // ── products list ──────────────────────────────────────
   function renderProducts() {
     const tbody = $('#products-tbody');
     const search = $('#search').value.toLowerCase().trim();
@@ -184,7 +293,6 @@
         openProductDrawer(products.find((p) => p.id === id));
       });
     });
-
     tbody.querySelectorAll('button[data-action="archive"]').forEach((b) => {
       b.addEventListener('click', async () => {
         const id = b.closest('tr').dataset.id;
@@ -195,12 +303,9 @@
           await api(`/api/admin/products/${encodeURIComponent(id)}`, { method: 'DELETE' });
           toast('Archived.');
           await loadProducts();
-        } catch (err) {
-          toast('Archive failed: ' + (err.message || ''), true);
-        }
+        } catch (err) { toast('Archive failed: ' + (err.message || ''), true); }
       });
     });
-
     tbody.querySelectorAll('button[data-action="unarchive"]').forEach((b) => {
       b.addEventListener('click', async () => {
         const id = b.closest('tr').dataset.id;
@@ -210,9 +315,7 @@
           await saveProduct({ ...p, status: 'available' });
           toast('Restored.');
           await loadProducts();
-        } catch (err) {
-          toast('Restore failed: ' + (err.message || ''), true);
-        }
+        } catch (err) { toast('Restore failed: ' + (err.message || ''), true); }
       });
     });
   }
@@ -223,12 +326,8 @@
     sel.innerHTML = '<option value="">Select a product</option>' + products
       .filter((p) => p.status !== 'archived')
       .sort((a, b) => a.name.localeCompare(b.name))
-      .map((p) => `<option value="${p.id}">${p.name}</option>`)
-      .join('');
-
-    if (products.some((p) => p.id === prev)) {
-      sel.value = prev;
-    }
+      .map((p) => `<option value="${p.id}">${p.name}</option>`).join('');
+    if (products.some((p) => p.id === prev)) sel.value = prev;
     renderMediaThumbs();
   }
 
@@ -237,9 +336,7 @@
       products = await api('/api/admin/products');
       renderProducts();
       populateMediaProductSelect();
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   }
 
   ['#search', '#status-filter', '#category-filter'].forEach((s) => {
@@ -247,6 +344,21 @@
     if (el) el.addEventListener('input', renderProducts);
   });
 
+  async function uploadOne(file) {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await api('/api/admin/upload', { method: 'POST', body: fd });
+    return res?.url || '';
+  }
+
+  async function saveProduct(product) {
+    await api(`/api/admin/products/${encodeURIComponent(product.id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(product),
+    });
+  }
+
+  // ── product drawer ─────────────────────────────────────
   const drawer = $('#drawer');
   const drawerOverlay = $('#drawer-overlay');
 
@@ -254,7 +366,6 @@
     editing = product || null;
     pendingImages = product?.images ? [...product.images] : [];
     $('#drawer-title').textContent = product ? 'Edit Product' : 'New Product';
-
     $('#f-id').value = product?.id || '';
     $('#f-name').value = product?.name || '';
     $('#f-subtitle').value = product?.subtitle || '';
@@ -266,7 +377,6 @@
     const status = product?.status || 'available';
     const radio = $(`input[name="status"][value="${status}"]`);
     if (radio) radio.checked = true;
-
     renderProductThumbs();
     drawer.classList.add('open');
     drawerOverlay.classList.add('open');
@@ -304,19 +414,14 @@
 
   const upZone = $('#f-upload-zone');
   const upInput = $('#f-photos');
-  upZone.addEventListener('click', (e) => {
-    if (e.target.tagName !== 'INPUT') upInput.click();
-  });
-
+  upZone.addEventListener('click', (e) => { if (e.target.tagName !== 'INPUT') upInput.click(); });
   upInput.addEventListener('change', async () => {
     const files = Array.from(upInput.files);
     for (const f of files) {
       try {
         const url = await uploadOne(f);
         if (url) pendingImages.push(url);
-      } catch (err) {
-        toast('Upload failed: ' + (err.message || ''), true);
-      }
+      } catch (err) { toast('Upload failed: ' + (err.message || ''), true); }
     }
     upInput.value = '';
     renderProductThumbs();
@@ -338,22 +443,17 @@
       shipping: $('#f-shipping').checked,
       weight_oz: parseInt($('#f-weight').value, 10) || 0,
     };
-
     try {
       const isNew = !editing;
       const path = isNew ? '/api/admin/products' : `/api/admin/products/${encodeURIComponent(editing.id)}`;
-      await api(path, {
-        method: isNew ? 'POST' : 'PUT',
-        body: JSON.stringify(body),
-      });
+      await api(path, { method: isNew ? 'POST' : 'PUT', body: JSON.stringify(body) });
       toast(isNew ? 'Product created.' : 'Product saved.');
       closeProductDrawer();
       await loadProducts();
-    } catch (err) {
-      toast('Save failed: ' + (err.message || ''), true);
-    }
+    } catch (err) { toast('Save failed: ' + (err.message || ''), true); }
   });
 
+  // ── media manager ──────────────────────────────────────
   function renderMediaThumbs() {
     const wrap = $('#media-thumbs');
     const empty = $('#media-empty');
@@ -363,14 +463,12 @@
       wrap.innerHTML = '';
       return;
     }
-
     const images = Array.isArray(p.images) ? p.images : [];
     if (!images.length) {
       empty.textContent = `${p.name} has no photos yet.`;
       wrap.innerHTML = '';
       return;
     }
-
     empty.textContent = `Managing photos for ${p.name}`;
     wrap.innerHTML = images.map((url, i) => `
       <div class="thumb">
@@ -378,7 +476,6 @@
         <button type="button" data-remove-image="${i}" aria-label="Remove">&times;</button>
       </div>
     `).join('');
-
     wrap.querySelectorAll('button[data-remove-image]').forEach((b) => {
       b.addEventListener('click', async () => {
         const idx = parseInt(b.dataset.removeImage, 10);
@@ -388,9 +485,7 @@
           toast('Photo removed.');
           await loadProducts();
           $('#media-product-select').value = mediaProductId;
-        } catch (err) {
-          toast('Could not remove photo.', true);
-        }
+        } catch (err) { toast('Could not remove photo.', true); }
       });
     });
   }
@@ -411,30 +506,25 @@
       toast('Select a product first.', true);
       return;
     }
-
     const files = Array.from($('#media-upload-input').files);
     const uploaded = [];
     for (const f of files) {
       try {
         const url = await uploadOne(f);
         if (url) uploaded.push(url);
-      } catch (err) {
-        toast('One upload failed: ' + (err.message || ''), true);
-      }
+      } catch (err) { toast('One upload failed: ' + (err.message || ''), true); }
     }
     $('#media-upload-input').value = '';
     if (!uploaded.length) return;
-
     try {
       await saveProduct({ ...p, images: [...(p.images || []), ...uploaded] });
       toast('Photos added.');
       await loadProducts();
       $('#media-product-select').value = mediaProductId;
-    } catch (err) {
-      toast('Could not save photos.', true);
-    }
+    } catch (err) { toast('Could not save photos.', true); }
   });
 
+  // ── reviews ────────────────────────────────────────────
   const reviewDrawer = $('#review-drawer');
   const reviewDrawerOverlay = $('#review-drawer-overlay');
 
@@ -444,7 +534,6 @@
       tbody.innerHTML = `<tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">No reviews yet.</td></tr>`;
       return;
     }
-
     tbody.innerHTML = reviews.map((r) => `
       <tr data-id="${r.id}">
         <td><span class="admin-table-price">${stars(r.stars || 5)}</span></td>
@@ -468,7 +557,6 @@
         openReviewDrawer(reviews.find((x) => x.id === id));
       });
     });
-
     tbody.querySelectorAll('button[data-review-action="toggle"]').forEach((b) => {
       b.addEventListener('click', async () => {
         const id = b.closest('tr').dataset.id;
@@ -481,12 +569,9 @@
           });
           toast('Review updated.');
           await loadReviews();
-        } catch (err) {
-          toast('Could not update review.', true);
-        }
+        } catch (err) { toast('Could not update review.', true); }
       });
     });
-
     tbody.querySelectorAll('button[data-review-action="delete"]').forEach((b) => {
       b.addEventListener('click', async () => {
         const id = b.closest('tr').dataset.id;
@@ -495,9 +580,7 @@
           await api(`/api/admin/reviews/${encodeURIComponent(id)}`, { method: 'DELETE' });
           toast('Review deleted.');
           await loadReviews();
-        } catch (err) {
-          toast('Could not delete review.', true);
-        }
+        } catch (err) { toast('Could not delete review.', true); }
       });
     });
   }
@@ -522,7 +605,6 @@
     $('#r-stars').value = review?.stars || 5;
     $('#r-text').value = review?.text || '';
     $('#r-published').checked = review?.published !== false;
-
     reviewDrawer.classList.add('open');
     reviewDrawerOverlay.classList.add('open');
     reviewDrawer.setAttribute('aria-hidden', 'false');
@@ -551,27 +633,21 @@
       text: $('#r-text').value.trim(),
       published: $('#r-published').checked,
     };
-
     try {
       if (editingReview) {
         await api(`/api/admin/reviews/${encodeURIComponent(editingReview.id)}`, {
-          method: 'PUT',
-          body: JSON.stringify(body),
+          method: 'PUT', body: JSON.stringify(body),
         });
       } else {
-        await api('/api/admin/reviews', {
-          method: 'POST',
-          body: JSON.stringify(body),
-        });
+        await api('/api/admin/reviews', { method: 'POST', body: JSON.stringify(body) });
       }
       toast(editingReview ? 'Review saved.' : 'Review created.');
       closeReviewDrawer();
       await loadReviews();
-    } catch (err) {
-      toast('Save failed: ' + (err.message || ''), true);
-    }
+    } catch (err) { toast('Save failed: ' + (err.message || ''), true); }
   });
 
+  // ── leads ──────────────────────────────────────────────
   async function loadLeads() {
     try {
       const leads = await api('/api/admin/leads');
@@ -595,6 +671,105 @@
     }
   }
 
+  // ── users ──────────────────────────────────────────────
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function renderUsers() {
+    const pending = users.filter((u) => u.status === 'pending');
+    const active = users.filter((u) => u.status !== 'pending');
+    const pendTbody = $('#users-pending-tbody');
+    const actTbody = $('#users-active-tbody');
+
+    if (!pending.length) {
+      pendTbody.innerHTML = `<tr><td colspan="4" style="padding:var(--space-5);text-align:center;color:var(--color-text-muted);">No pending requests.</td></tr>`;
+    } else {
+      pendTbody.innerHTML = pending.map((u) => `
+        <tr data-email="${escapeHtml(u.email)}">
+          <td><strong>${escapeHtml(u.email)}</strong></td>
+          <td>
+            ${u.request_name ? escapeHtml(u.request_name) : '—'}
+            ${u.request_message ? `<span class="admin-table-sub">${escapeHtml(u.request_message)}</span>` : ''}
+          </td>
+          <td>${fmtDate(u.created_at)}</td>
+          <td style="text-align:right;">
+            <button class="btn-admin" data-user-action="approve">Approve</button>
+            <button class="btn-admin-ghost" data-user-action="delete">Reject</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    if (!active.length) {
+      actTbody.innerHTML = `<tr><td colspan="5" style="padding:var(--space-5);text-align:center;color:var(--color-text-muted);">No active users.</td></tr>`;
+    } else {
+      actTbody.innerHTML = active.map((u) => {
+        const isMe = me && u.email === me.email;
+        const isSuper = u.role === 'super';
+        return `
+        <tr data-email="${escapeHtml(u.email)}">
+          <td><strong>${escapeHtml(u.email)}</strong>${isMe ? ' <em style="color:var(--color-text-muted);">(you)</em>' : ''}</td>
+          <td>${escapeHtml(u.role)}${u.passwordSet ? '' : ' <span style="color:var(--color-text-muted);">· no password yet</span>'}</td>
+          <td>${escapeHtml(u.status)}</td>
+          <td>${fmtDate(u.last_login)}</td>
+          <td style="text-align:right;">
+            <button class="btn-admin-ghost" data-user-action="reset-password" ${isMe ? 'disabled title="Use sign out + first login flow on yourself"' : ''}>Reset password</button>
+            ${u.status === 'disabled'
+              ? `<button class="btn-admin-ghost" data-user-action="enable">Enable</button>`
+              : `<button class="btn-admin-ghost" data-user-action="disable" ${isSuper ? 'disabled' : ''}>Disable</button>`}
+            <button class="btn-admin-ghost" data-user-action="delete" ${(isSuper || isMe) ? 'disabled' : ''}>Delete</button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    document.querySelectorAll('[data-user-action]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const email = btn.closest('tr').dataset.email;
+        const action = btn.dataset.userAction;
+        try {
+          if (action === 'delete') {
+            if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
+            await api(`/api/admin/users/${encodeURIComponent(email)}`, { method: 'DELETE' });
+            toast('User removed.');
+          } else if (action === 'reset-password') {
+            if (!confirm(`Reset password for ${email}? They will set a new one on next sign-in.`)) return;
+            await api(`/api/admin/users/${encodeURIComponent(email)}/reset-password`, { method: 'POST' });
+            toast('Password reset. They will create a new one on next login.');
+          } else {
+            await api(`/api/admin/users/${encodeURIComponent(email)}/${action}`, { method: 'POST' });
+            toast(action === 'approve' ? 'Approved.' : action === 'disable' ? 'Disabled.' : action === 'enable' ? 'Enabled.' : 'Done.');
+          }
+          await loadUsers();
+        } catch (err) { toast('Action failed: ' + (err.message || ''), true); }
+      });
+    });
+  }
+
+  async function loadUsers() {
+    if (me?.role !== 'super') return;
+    try {
+      users = await api('/api/admin/users');
+      renderUsers();
+    } catch (err) {
+      console.error(err);
+      $('#users-pending-tbody').innerHTML = `<tr><td colspan="4" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Could not load users.</td></tr>`;
+    }
+  }
+
+  $('#new-user-btn').addEventListener('click', async () => {
+    const email = prompt('Email of user to invite:');
+    if (!email) return;
+    const role = confirm('Make this user a SUPER admin? (Cancel = regular admin)') ? 'super' : 'admin';
+    try {
+      await api('/api/admin/users', { method: 'POST', body: JSON.stringify({ email: email.trim().toLowerCase(), role }) });
+      toast('User invited. They can sign in and set a password.');
+      await loadUsers();
+    } catch (err) { toast('Invite failed: ' + (err.message || ''), true); }
+  });
+
+  // ── toast ──────────────────────────────────────────────
   const toastEl = $('#toast');
   function toast(msg, error = false) {
     toastEl.textContent = msg;
@@ -603,6 +778,14 @@
     setTimeout(() => toastEl.classList.remove('show'), 2800);
   }
 
-  if (adminKey) showDashboard();
-  else showLogin();
+  // ── boot ───────────────────────────────────────────────
+  (async function boot() {
+    if (!sessionToken) { showLogin(); return; }
+    try {
+      me = await api('/api/auth/me');
+      showDashboard();
+    } catch {
+      showLogin();
+    }
+  })();
 })();

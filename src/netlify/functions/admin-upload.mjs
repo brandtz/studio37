@@ -2,12 +2,13 @@
 // Upload a single image file to Cloudflare R2 (S3-compatible).
 // Returns { url } pointing at the public R2 / CDN URL.
 
-import { json, requireAdmin } from './_lib/store.mjs';
+import { json } from './_lib/store.mjs';
+import { requireSession } from './_lib/auth.mjs';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 export default async (req) => {
-  const auth = requireAdmin(req);
-  if (auth) return auth;
+  const auth = await requireSession(req);
+  if (auth.error) return auth.error;
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
   const {

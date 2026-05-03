@@ -3,16 +3,20 @@
 import { getStore } from '@netlify/blobs';
 import seedProducts from './products.seed.json' with { type: 'json' };
 import seedReviews from './reviews.seed.json' with { type: 'json' };
+import seedUsers from './users.seed.json' with { type: 'json' };
 
 export const PRODUCT_STORE = 'products';
 export const LEAD_STORE = 'leads';
 export const REVIEW_STORE = 'reviews';
+export const USER_STORE = 'users';
 
 // Bump this whenever the seed data changes — triggers auto-migration on next cold start.
 const SEED_VERSION = 2;
 const SEED_VERSION_KEY = '_seed_version';
 const REVIEW_SEED_VERSION = 1;
 const REVIEW_SEED_VERSION_KEY = '_review_seed_version';
+const USER_SEED_VERSION = 1;
+const USER_SEED_VERSION_KEY = '_user_seed_version';
 
 export function productStore() {
   return getStore({ name: PRODUCT_STORE, consistency: 'strong' });
@@ -24,6 +28,10 @@ export function leadStore() {
 
 export function reviewStore() {
   return getStore({ name: REVIEW_STORE, consistency: 'strong' });
+}
+
+export function userStore() {
+  return getStore({ name: USER_STORE, consistency: 'strong' });
 }
 
 export const json = (body, status = 200, extra = {}) =>
@@ -107,6 +115,43 @@ export async function ensureReviewSeeded(force = false) {
   }
   await store.setJSON(REVIEW_SEED_VERSION_KEY, { v: REVIEW_SEED_VERSION });
   return { seeded: true, written, count: written };
+}
+
+export async function ensureUserSeeded(force = false) {
+  const store = userStore();
+
+  if (!force) {
+    const storedVersion = await store
+      .get(USER_SEED_VERSION_KEY, { type: 'json' })
+      .catch(() => null);
+    if (storedVersion?.v === USER_SEED_VERSION) {
+      return { seeded: false, written: 0 };
+    }
+  }
+
+  const now = nowIso();
+  let written = 0;
+  for (const u of seedUsers) {
+    const key = String(u.email).toLowerCase();
+    const existing = await store.get(key, { type: 'json' }).catch(() => null);
+    // Only seed if user doesn't yet exist — never clobber an existing password.
+    if (!existing) {
+      await store.setJSON(key, {
+        email: key,
+        status: u.status || 'approved',
+        role: u.role || 'admin',
+        passwordHash: null,
+        passwordSet: false,
+        created_at: now,
+        approved_at: now,
+        approved_by: 'seed',
+        last_login: null,
+      });
+      written++;
+    }
+  }
+  await store.setJSON(USER_SEED_VERSION_KEY, { v: USER_SEED_VERSION });
+  return { seeded: true, written };
 }
 
 export function slugify(s) {

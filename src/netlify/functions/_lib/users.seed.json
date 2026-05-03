@@ -1,0 +1,9 @@
+[
+  {
+    "email": "thebrandt@gmail.com",
+    "status": "approved",
+    "role": "super",
+    "passwordHash": null,
+    "passwordSet": false
+  }
+]
