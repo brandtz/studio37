@@ -138,6 +138,91 @@
   background: var(--color-surface-mid);
   border-top: 1px solid var(--color-divider);
 }
+
+/* ── REVIEWS CAROUSEL ────────────────────────────────────── */
+.reviews-section {
+  background: var(--color-surface-low);
+  border-top: 1px solid var(--color-divider);
+}
+.reviews-carousel {
+  position: relative;
+  overflow: hidden;
+  min-height: 220px;
+}
+.reviews-track {
+  display: flex;
+  transition: transform 500ms ease;
+  will-change: transform;
+}
+.review-card {
+  flex: 0 0 100%;
+  box-sizing: border-box;
+  padding: 0 var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.review-stars {
+  display: flex;
+  gap: 3px;
+  color: var(--color-accent);
+  font-size: var(--text-lg);
+}
+.review-text {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 300;
+  line-height: 1.45;
+  color: var(--color-text);
+  max-width: 720px;
+}
+.review-text::before { content: '\201C'; }
+.review-text::after  { content: '\201D'; }
+.review-byline {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+}
+.review-byline strong { color: var(--color-text); }
+.reviews-dots {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+.reviews-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--color-divider);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: background 300ms;
+}
+.reviews-dot.active { background: var(--color-accent); }
+
+/* Reviews page grid */
+.reviews-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-8) var(--space-10);
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+.review-card-full {
+  background: var(--color-surface-mid);
+  border: 1px solid var(--color-divider);
+  border-radius: 4px;
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.review-card-full .review-text {
+  font-size: var(--text-base);
+}
+
 .section-row {
   display: flex; justify-content: space-between; align-items: flex-end;
   margin-bottom: var(--space-7);
@@ -776,6 +861,8 @@
   .form-row { grid-template-columns: 1fr; }
   .footer-inner { grid-template-columns: 1fr; gap: var(--space-6); }
   .footer-bottom { flex-direction: column; gap: var(--space-2); text-align: center; }
+  .review-card { padding: 0 var(--space-4); }
+  .reviews-grid { grid-template-columns: 1fr; padding: var(--space-5); }
 }
 
 @media (max-width: 480px) {
