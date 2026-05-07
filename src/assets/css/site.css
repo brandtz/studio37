@@ -26,8 +26,6 @@
   border-radius: var(--radius-pill);
   line-height: 1;
 }
-.nav-cart-count.snipcart-items-count[data-snipcart-items-count]:not([data-snipcart-items-count="0"]) { display: inline-flex; }
-/* Snipcart writes the number into the span as text, not data attr — fall back: */
 .nav-cart-count:not(:empty) { display: inline-flex; }
 
 /* Hide logo when missing image — avoids broken-image icon during dev */
@@ -1020,3 +1018,122 @@
   font-style: italic;
   margin-bottom: var(--space-5);
 }
+
+
+/* ============================================================
+   CART DRAWER (Stripe Checkout flow)
+   ============================================================ */
+.cart-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transition: opacity 220ms var(--ease-fast, ease);
+  z-index: 9000;
+  pointer-events: none;
+}
+.cart-backdrop.open { opacity: 1; pointer-events: auto; }
+
+.cart-drawer {
+  position: fixed;
+  top: 0; right: 0;
+  width: min(420px, 92vw);
+  height: 100dvh;
+  display: flex; flex-direction: column;
+  background: var(--color-bg-elev-1, #fff);
+  color: var(--color-text-primary);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.25);
+  transform: translateX(100%);
+  transition: transform 280ms cubic-bezier(.2, .8, .2, 1);
+  z-index: 9001;
+}
+.cart-drawer.open { transform: translateX(0); }
+
+.cart-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--color-border, #2a2a2a);
+}
+.cart-head h2 { margin: 0; font-size: 1.125rem; letter-spacing: 0.02em; }
+.cart-close {
+  background: none; border: 0; color: inherit;
+  font-size: 1.6rem; line-height: 1; cursor: pointer; padding: 4px 8px;
+}
+
+.cart-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-6);
+}
+.cart-empty { text-align: center; color: var(--color-text-muted); padding: var(--space-7) 0; }
+
+.cart-line {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-border, #2a2a2a);
+}
+.cart-line-img {
+  width: 64px; height: 64px;
+  background: var(--color-bg-elev-2, #1a1a1a);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.cart-line-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cart-line-name { font-weight: 600; margin-bottom: 2px; }
+.cart-line-price { color: var(--color-text-muted); font-size: 0.875rem; }
+.cart-line-qty {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-top: 6px;
+  font-size: 0.875rem;
+}
+.cart-line-qty button {
+  width: 26px; height: 26px;
+  border: 1px solid var(--color-border, #333);
+  background: transparent; color: inherit;
+  cursor: pointer; border-radius: 4px;
+}
+.cart-line-qty button:hover { background: var(--color-bg-elev-2, #1a1a1a); }
+.cart-line-remove {
+  width: auto !important; height: auto !important;
+  padding: 2px 8px; margin-left: 8px;
+  font-size: 0.75rem; color: var(--color-text-muted);
+}
+.cart-line-sub { font-weight: 600; align-self: start; }
+
+.cart-foot {
+  border-top: 1px solid var(--color-border, #2a2a2a);
+  padding: var(--space-5) var(--space-6) var(--space-6);
+  background: var(--color-bg-elev-1, transparent);
+}
+.cart-totals {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 6px; font-size: 1rem;
+}
+.cart-totals strong { font-size: 1.125rem; }
+.cart-fineprint { color: var(--color-text-muted); font-size: 0.8125rem; margin: 0 0 var(--space-4); }
+.cart-checkout { width: 100%; }
+.cart-checkout:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Checkout return banners */
+.checkout-banner {
+  position: fixed;
+  left: 50%;
+  top: 24px;
+  transform: translate(-50%, -40px);
+  padding: 12px 18px;
+  border-radius: 6px;
+  background: var(--color-bg-elev-2, #1a1a1a);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border, #333);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transition: opacity 220ms ease, transform 220ms ease;
+  z-index: 9100;
+  max-width: min(560px, 92vw);
+  font-size: 0.95rem;
+  text-align: center;
+}
+.checkout-banner.show { opacity: 1; transform: translate(-50%, 0); }
+.checkout-banner.success { border-color: var(--color-accent, #c79a4a); }
+.checkout-banner.cancelled { border-color: var(--color-text-muted, #666); }

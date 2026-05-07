@@ -1,0 +1,122 @@
+// POST /api/stripe/webhook
+// Receives Stripe webhook events (platform + connected-account).
+// Verifies signature with STRIPE_WEBHOOK_SECRET, persists orders, sends SMS.
+//
+// IMPORTANT: this function MUST receive the raw request body (not parsed JSON)
+// for signature verification. Netlify Functions v2 (`req.text()`) preserves it.
+
+import twilio from 'twilio';
+import { json } from './_lib/store.mjs';
+import { stripe, orderStore } from './_lib/stripe.mjs';
+
+export default async (req) => {
+  if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
+
+  const sig = req.headers.get('stripe-signature');
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!sig || !secret) return json({ error: 'webhook_not_configured' }, 503);
+
+  const raw = await req.text();
+  let evt;
+  try {
+    evt = stripe().webhooks.constructEvent(raw, sig, secret);
+  } catch (err) {
+    console.warn('[stripe-webhook] invalid signature', err?.message);
+    return json({ error: 'invalid_signature' }, 400);
+  }
+
+  // `evt.account` is set when the event came from a connected account.
+  const connectedAccount = evt.account || null;
+
+  try {
+    switch (evt.type) {
+      case 'checkout.session.completed':
+        await onCheckoutComplete(evt.data.object, connectedAccount);
+        break;
+      case 'payment_intent.payment_failed':
+        console.warn('[stripe-webhook] payment failed', evt.data.object?.id, evt.data.object?.last_payment_error?.message);
+        break;
+      case 'account.updated':
+        // Connected account onboarding/requirements changed. We don't persist this
+        // yet — the admin Connect tab fetches live status on demand.
+        break;
+      case 'account.application.deauthorized':
+        // Client disconnected the platform from their account.
+        // TODO: mark tenant inactive; out of scope for first pass.
+        break;
+      default:
+        // Many events we don't handle yet — return 200 so Stripe doesn't retry.
+        break;
+    }
+  } catch (err) {
+    console.error('[stripe-webhook] handler error', err);
+    // Return 200 so Stripe doesn't retry forever; we log for follow-up.
+  }
+
+  return json({ received: true });
+};
+
+async function onCheckoutComplete(session, connectedAccount) {
+  const tenantId = session?.metadata?.tenant_id || 'studio37';
+
+  // Fetch line items expanded — Stripe doesn't include them on the bare session.
+  let lineItems = [];
+  try {
+    const list = await stripe().checkout.sessions.listLineItems(session.id, { limit: 50 }, connectedAccount ? { stripeAccount: connectedAccount } : undefined);
+    lineItems = list.data || [];
+  } catch (err) {
+    console.warn('[stripe-webhook] could not fetch line items', err?.message);
+  }
+
+  const order = {
+    id: session.id,
+    tenant_id: tenantId,
+    stripe_account_id: connectedAccount,
+    payment_intent: session.payment_intent || null,
+    customer_email: session.customer_details?.email || session.customer_email || null,
+    customer_name: session.customer_details?.name || null,
+    customer_phone: session.customer_details?.phone || null,
+    shipping_address: session.shipping_details?.address || null,
+    shipping_name: session.shipping_details?.name || null,
+    amount_subtotal: session.amount_subtotal,
+    amount_total: session.amount_total,
+    currency: session.currency,
+    payment_status: session.payment_status,
+    status: session.status,
+    created_at: new Date((session.created || Math.floor(Date.now() / 1000)) * 1000).toISOString(),
+    items: lineItems.map((li) => ({
+      description: li.description,
+      quantity: li.quantity,
+      amount_total: li.amount_total,
+      product_id: li.price?.product_metadata?.product_id || li.price?.metadata?.product_id || null,
+    })),
+  };
+
+  try {
+    await orderStore().setJSON(order.id, order);
+  } catch (err) {
+    console.error('[stripe-webhook] persist order failed', err);
+  }
+
+  // Notify Drew via SMS
+  try {
+    const { TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM, DREW_PHONE } = process.env;
+    if (TWILIO_SID && TWILIO_TOKEN && TWILIO_FROM && DREW_PHONE) {
+      const summary = order.items.map((i) => `${i.quantity}× ${i.description}`).join(', ').slice(0, 240);
+      const total = order.amount_total != null ? `$${(order.amount_total / 100).toFixed(2)}` : '';
+      const msg = [
+        `🛒 New Studio 37 Order!`,
+        summary ? `Items: ${summary}` : null,
+        total ? `Total: ${total}` : null,
+        order.customer_name ? `Buyer: ${order.customer_name}` : null,
+        `Stripe → studio37customdesign.netlify.app/admin (Orders)`,
+      ].filter(Boolean).join('\n');
+      const client = twilio(TWILIO_SID, TWILIO_TOKEN);
+      await client.messages.create({ from: TWILIO_FROM, to: DREW_PHONE, body: msg });
+    }
+  } catch (err) {
+    console.error('[stripe-webhook] SMS failed', err?.message || err);
+  }
+}
+
+export const config = { path: '/.netlify/functions/stripe-webhook' };

@@ -161,15 +161,3 @@ export function slugify(s) {
     .replace(/(^-|-$)/g, '')
     .slice(0, 60);
 }
-
-// Snipcart product validation expects decimal dollars at top level.
-export function toSnipcartProduct(p, baseUrl) {
-  return {
-    id: p.id,
-    name: p.name,
-    price: typeof p.price === 'number' ? +(p.price / 100).toFixed(2) : 0,
-    url: `${baseUrl || ''}/api/products/${p.id}`,
-    description: p.description || '',
-    image: p.images?.[0] || null,
-  };
-}

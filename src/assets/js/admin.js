@@ -104,6 +104,8 @@
       $('#who-am-i').textContent = `${me.email} (${me.role})`;
       const usersNav = document.querySelector('[data-nav-users]');
       if (usersNav) usersNav.hidden = me.role !== 'super';
+      const connectNav = document.querySelector('[data-nav-connect]');
+      if (connectNav) connectNav.hidden = me.role !== 'super';
     }
     setSection('products');
   }
@@ -227,7 +229,8 @@
 
   function setSection(section) {
     if (section === 'users' && me?.role !== 'super') section = 'products';
-    const sectionMap = ['products', 'media', 'reviews', 'orders', 'leads', 'users'];
+    if (section === 'connect' && me?.role !== 'super') section = 'products';
+    const sectionMap = ['products', 'media', 'reviews', 'orders', 'leads', 'users', 'connect'];
     sectionMap.forEach((s) => {
       const el = $(`#section-${s}`);
       if (el) el.hidden = s !== section;
@@ -236,7 +239,7 @@
     $$('.admin-nav a').forEach((x) => x.classList.toggle('active', x.dataset.section === section));
     $('#section-title').textContent = ({
       products: 'Products', media: 'Media', reviews: 'Reviews',
-      orders: 'Orders', leads: 'Leads', users: 'Users',
+      orders: 'Orders', leads: 'Leads', users: 'Users', connect: 'Payments',
     })[section] || 'Admin';
 
     $('#new-product-btn').hidden = section !== 'products';
@@ -246,8 +249,10 @@
     if (section === 'products') loadProducts();
     if (section === 'media')    loadProducts();
     if (section === 'reviews')  loadReviews();
+    if (section === 'orders')   loadOrders();
     if (section === 'leads')    loadLeads();
     if (section === 'users')    loadUsers();
+    if (section === 'connect')  loadConnect();
   }
 
   // ── products list ──────────────────────────────────────
@@ -668,6 +673,112 @@
     } catch (err) {
       console.error(err);
       $('#leads-tbody').innerHTML = `<tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Could not load leads.</td></tr>`;
+    }
+  }
+
+  // ── orders ─────────────────────────────────────────────
+  async function loadOrders() {
+    const tbody = $('#orders-tbody');
+    if (!tbody) return;
+    try {
+      const orders = await api('/api/admin/orders');
+      if (!Array.isArray(orders) || !orders.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">No orders yet.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = orders.map((o) => {
+        const when = o.created_at ? new Date(o.created_at).toLocaleString() : '—';
+        const customer = o.customer_email
+          ? `<a href="mailto:${escapeHtml(o.customer_email)}" style="color:var(--color-accent);">${escapeHtml(o.customer_email)}</a>`
+          : (o.customer_name ? escapeHtml(o.customer_name) : '—');
+        const items = Array.isArray(o.items) && o.items.length
+          ? o.items.map((i) => `${escapeHtml(i.name || i.id)} ×${i.quantity || 1}`).join('<br/>')
+          : '—';
+        const total = typeof o.amount_total === 'number' ? '$' + (o.amount_total / 100).toFixed(2) : '—';
+        const status = escapeHtml(o.status || 'paid');
+        const stripeLink = o.checkout_session_id
+          ? `<a href="https://dashboard.stripe.com/payments/${escapeHtml(o.payment_intent_id || '')}" target="_blank" rel="noopener" style="color:var(--color-accent);">Open &rarr;</a>`
+          : '—';
+        return `
+          <tr>
+            <td>${when}</td>
+            <td>${customer}</td>
+            <td>${items}</td>
+            <td>${total}</td>
+            <td>${status}</td>
+            <td style="text-align:right;">${stripeLink}</td>
+          </tr>
+        `;
+      }).join('');
+    } catch (err) {
+      console.error(err);
+      tbody.innerHTML = `<tr><td colspan="6" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Could not load orders.</td></tr>`;
+    }
+  }
+
+  // ── stripe connect ─────────────────────────────────────
+  async function loadConnect() {
+    const tbody = $('#connect-tbody');
+    if (!tbody) return;
+    try {
+      const data = await api('/api/admin/stripe-connect?action=list');
+      const tenants = Array.isArray(data) ? data : (Array.isArray(data?.tenants) ? data.tenants : []);
+      if (!tenants.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">No tenants configured.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = tenants.map((t) => {
+        const status = t.stripe_status || {};
+        const acct = t.stripe_account_id
+          ? `<code style="font-size:.8125rem;">${escapeHtml(t.stripe_account_id)}</code>`
+          : `<span style="color:var(--color-text-muted);">Not connected</span>`;
+        const pill = (ok, label) => `<span class="badge ${ok ? 'badge-ok' : 'badge-neutral'}">${ok ? '✓ ' : '— '}${label}</span>`;
+        const reqs = Array.isArray(status.requirements_currently_due) && status.requirements_currently_due.length
+          ? `<span style="color:var(--color-warn,#c79a4a);font-size:.8125rem;">${status.requirements_currently_due.length} pending</span>`
+          : `<span style="color:var(--color-text-muted);font-size:.8125rem;">None</span>`;
+        const actions = [];
+        if (!t.stripe_account_id || !status.details_submitted) {
+          actions.push(`<button type="button" class="btn-admin-primary" data-connect-onboard="${escapeHtml(t.id)}">Continue Onboarding</button>`);
+        } else {
+          actions.push(`<a href="https://dashboard.stripe.com/${escapeHtml(t.stripe_account_id)}" target="_blank" rel="noopener" class="btn-admin-ghost">Open Stripe &rarr;</a>`);
+        }
+        return `
+          <tr>
+            <td><strong>${escapeHtml(t.name || t.id)}</strong><br/><span style="color:var(--color-text-muted);font-size:.8125rem;">${escapeHtml(t.id)}</span></td>
+            <td>${acct}</td>
+            <td>${pill(!!status.charges_enabled, 'Charges')}</td>
+            <td>${pill(!!status.payouts_enabled, 'Payouts')}</td>
+            <td>${reqs}</td>
+            <td style="text-align:right;">${actions.join(' ')}</td>
+          </tr>
+        `;
+      }).join('');
+      tbody.querySelectorAll('[data-connect-onboard]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const tenantId = btn.dataset.connectOnboard;
+          btn.disabled = true; btn.textContent = 'Opening Stripe…';
+          try {
+            const res = await api('/api/admin/stripe-connect/onboard', {
+              method: 'POST',
+              body: JSON.stringify({ tenantId }),
+            });
+            if (res?.url) {
+              window.open(res.url, '_blank', 'noopener');
+              toast('Stripe onboarding opened in a new tab.');
+              setTimeout(() => loadConnect(), 1000);
+            } else {
+              toast('Could not start onboarding.', true);
+              btn.disabled = false; btn.textContent = 'Continue Onboarding';
+            }
+          } catch (err) {
+            toast('Onboarding failed: ' + (err.message || ''), true);
+            btn.disabled = false; btn.textContent = 'Continue Onboarding';
+          }
+        });
+      });
+    } catch (err) {
+      console.error(err);
+      tbody.innerHTML = `<tr><td colspan="6" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Could not load Connect status.</td></tr>`;
     }
   }
 

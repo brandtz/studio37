@@ -1,0 +1,11 @@
+[
+  {
+    "id": "studio37",
+    "name": "Studio 37 Custom Designs",
+    "stripe_account_id": "",
+    "application_fee_bps": 0,
+    "currency": "usd",
+    "country": "US",
+    "active": true
+  }
+]

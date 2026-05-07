@@ -20,13 +20,13 @@
       <li><a href="/about" data-page="about">About</a></li>
     </ul>
     <div class="nav-actions">
-      <button class="snipcart-checkout nav-cart" aria-label="Open cart" type="button">
+      <button class="nav-cart" data-cart-toggle aria-label="Open cart" type="button">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
           <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/>
           <line x1="3" y1="6" x2="21" y2="6"/>
           <path d="M16 10a4 4 0 0 1-8 0"/>
         </svg>
-        <span class="snipcart-items-count nav-cart-count" aria-hidden="true"></span>
+        <span class="nav-cart-count" data-cart-count aria-hidden="true"></span>
       </button>
       <a href="/contact" class="nav-cta">Get a Quote</a>
       <button class="nav-mobile-toggle" aria-label="Open menu" aria-expanded="false">

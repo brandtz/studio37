@@ -1,4 +1,4 @@
-/* Studio 37 — Shop page: fetch products, render cards, filter, Snipcart wiring */
+/* Studio 37 — Shop page: fetch products, render cards, filter, cart wiring */
 (() => {
   const grid = document.getElementById('product-grid');
   if (!grid) return;
@@ -52,16 +52,9 @@
 
   function ctaFor(p) {
     if (p.status === 'available') {
-      const priceDollars = (p.price / 100).toFixed(2);
       return `
-        <button class="btn-primary snipcart-add-item"
-          data-item-id="${p.id}"
-          data-item-name="${p.name.replace(/"/g, '&quot;')}"
-          data-item-price="${priceDollars}"
-          data-item-url="/api/products/${p.id}"
-          data-item-description="${(p.description || '').replace(/"/g, '&quot;').slice(0, 200)}"
-          data-item-image="${p.images?.[0] || ''}"
-          ${p.weight_oz ? `data-item-weight="${p.weight_oz}"` : ''}>
+        <button class="btn-primary" type="button"
+          data-add-to-cart="${p.id}">
           Add to Cart
         </button>`;
     }
@@ -97,6 +90,13 @@
       return;
     }
     grid.innerHTML = list.map(renderCard).join('');
+    grid.querySelectorAll('button[data-add-to-cart]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.addToCart;
+        const product = products.find((p) => p.id === id);
+        if (product && window.Studio37Cart) window.Studio37Cart.add(product, 1);
+      });
+    });
   }
 
   document.querySelectorAll('.shop-filters .filter-pill').forEach((pill) => {
