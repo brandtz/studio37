@@ -141,10 +141,12 @@
       return;
     }
 
-    if (res.status === 403 && res.body?.error === 'pending') {
+    if (res.status === 400 && res.body?.error === 'password_required') {
+      $('#login-error').textContent = 'Please enter your password.';
+    } else if (res.status === 403 && res.body?.error === 'pending') {
       $('#login-error').textContent = 'Your account is pending approval.';
     } else if (res.status === 403 && res.body?.error === 'disabled') {
-      $('#login-error').textContent = 'Account disabled. Contact Drew.';
+      $('#login-error').textContent = 'Account disabled. Contact the site owner.';
     } else {
       $('#login-error').textContent = 'Email or password is incorrect.';
     }

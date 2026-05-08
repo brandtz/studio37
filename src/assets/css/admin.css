@@ -3,6 +3,10 @@
    Loaded only on /admin/. Uses tokens.css for the base.
    ============================================================ */
 
+/* Ensure [hidden] always wins over display:flex/grid rules below. */
+.admin [hidden],
+[hidden] { display: none !important; }
+
 body.admin {
   background: var(--color-admin-bg);
   font-family: var(--font-body);

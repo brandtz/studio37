@@ -18,6 +18,7 @@ export default async (req) => {
   const email = String(body?.email || '').trim().toLowerCase();
   const password = String(body?.password || '');
   if (!email) return json({ error: 'email_required' }, 400);
+  if (!password) return json({ error: 'password_required', message: 'Password is required.' }, 400);
 
   const store = userStore();
   const user = await store.get(email, { type: 'json' });
@@ -36,6 +37,8 @@ export default async (req) => {
   }
 
   // First-login flow: user is approved but has not set a password yet.
+  // Only triggered when the user submits with a non-empty password field;
+  // the blank-password loophole is closed by the check above.
   if (!user.passwordSet || !user.passwordHash) {
     const setupToken = await signSetupToken(email);
     return json({ firstLogin: true, setupToken, email });
