@@ -1,6 +1,8 @@
 // POST /api/stripe/webhook
-// Receives Stripe webhook events (platform + connected-account).
-// Verifies signature with STRIPE_WEBHOOK_SECRET, persists orders, sends SMS.
+// Receives Stripe webhook events from two destinations:
+//   1. STRIPE_WEBHOOK_SECRET       — "Connected accounts" scope (checkout, payment_intent)
+//   2. STRIPE_WEBHOOK_SECRET_PLATFORM — "Your account" scope (account.updated, deauthorized)
+// Tries both secrets; whichever verifies wins.
 //
 // IMPORTANT: this function MUST receive the raw request body (not parsed JSON)
 // for signature verification. Netlify Functions v2 (`req.text()`) preserves it.
@@ -13,15 +15,28 @@ export default async (req) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
   const sig = req.headers.get('stripe-signature');
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!sig || !secret) return json({ error: 'webhook_not_configured' }, 503);
+  if (!sig) return json({ error: 'missing_signature' }, 400);
 
   const raw = await req.text();
-  let evt;
-  try {
-    evt = stripe().webhooks.constructEvent(raw, sig, secret);
-  } catch (err) {
-    console.warn('[stripe-webhook] invalid signature', err?.message);
+
+  // Try both secrets — connected-accounts destination first, then platform destination.
+  const secrets = [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_WEBHOOK_SECRET_PLATFORM,
+  ].filter(Boolean);
+
+  if (!secrets.length) return json({ error: 'webhook_not_configured' }, 503);
+
+  let evt = null;
+  for (const secret of secrets) {
+    try {
+      evt = stripe().webhooks.constructEvent(raw, sig, secret);
+      break; // verified
+    } catch { /* try next */ }
+  }
+
+  if (!evt) {
+    console.warn('[stripe-webhook] signature verification failed against all configured secrets');
     return json({ error: 'invalid_signature' }, 400);
   }
 
