@@ -258,5 +258,70 @@
     "by_request": true,
     "shipping": false,
     "weight_oz": 0
+  },
+  {
+    "id": "sauna-1-2",
+    "name": "Cedar Sauna Kit — 1-2 Person",
+    "subtitle": "Compact cedar sauna, includes delivery + setup",
+    "price": null,
+    "description": "Compact 1-2 person cedar sauna kit. Cedar interior and exterior, complete heater package, benching, lighting, and door. Most installations this size do not require a permit when sited on an existing surface. Package includes delivery, setup, and electrical hookup where required (pulled and inspected under licensed sub).",
+    "category": "saunas",
+    "images": ["/assets/images/shop/coming-soon.svg"],
+    "status": "by_request",
+    "by_request": true,
+    "shipping": false,
+    "weight_oz": 0
+  },
+  {
+    "id": "sauna-2-3",
+    "name": "Cedar Sauna Kit — 2-3 Person",
+    "subtitle": "Two-bench cedar build, includes delivery + setup",
+    "price": null,
+    "description": "Two- to three-person cedar sauna kit. Premium cedar throughout, full heater package, two-tier benching, glass door, and integrated lighting. Concrete pad usually not required; sited on existing patio or deck. Package includes delivery, full setup, and any required electrical (permit + inspection handled).",
+    "category": "saunas",
+    "images": ["/assets/images/shop/coming-soon.svg"],
+    "status": "by_request",
+    "by_request": true,
+    "shipping": false,
+    "weight_oz": 0
+  },
+  {
+    "id": "sauna-4",
+    "name": "Cedar Sauna Kit — 4 Person",
+    "subtitle": "Family-size cedar sauna, includes delivery + setup",
+    "price": null,
+    "description": "Four-person cedar sauna kit. Larger footprint with two-tier benching, full heater package, glass-front door, and warm low-voltage lighting. May require a small concrete pad depending on site. Delivery, setup, electrical, and any permit/inspection handling are included in the package.",
+    "category": "saunas",
+    "images": ["/assets/images/shop/coming-soon.svg"],
+    "status": "by_request",
+    "by_request": true,
+    "shipping": false,
+    "weight_oz": 0
+  },
+  {
+    "id": "sauna-4-6",
+    "name": "Cedar Sauna Kit — 4-6 Person",
+    "subtitle": "Wide-bench cedar build, includes delivery + setup",
+    "price": null,
+    "description": "Four- to six-person cedar sauna kit. Roomy two-tier benching, upgraded heater package sized to volume, glass door, and integrated lighting. Concrete pad recommended for this size and included where needed. Delivery, setup, and permitted electrical work are all bundled in the package price.",
+    "category": "saunas",
+    "images": ["/assets/images/shop/coming-soon.svg"],
+    "status": "by_request",
+    "by_request": true,
+    "shipping": false,
+    "weight_oz": 0
+  },
+  {
+    "id": "sauna-6-8",
+    "name": "Cedar Sauna Kit — 6-8 Person",
+    "subtitle": "Top-of-line cedar sauna, includes delivery + setup",
+    "price": null,
+    "description": "Six- to eight-person cedar sauna kit — the largest configuration. Wraparound benching, upgraded heater sized for the volume, glass door, integrated lighting, and optional changing nook. Includes concrete pad, delivery, full setup, and licensed/permitted electrical work. Lead time 6-8 weeks.",
+    "category": "saunas",
+    "images": ["/assets/images/shop/coming-soon.svg"],
+    "status": "by_request",
+    "by_request": true,
+    "shipping": false,
+    "weight_oz": 0
   }
 ]

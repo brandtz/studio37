@@ -11,7 +11,7 @@ export const REVIEW_STORE = 'reviews';
 export const USER_STORE = 'users';
 
 // Bump this whenever the seed data changes — triggers auto-migration on next cold start.
-const SEED_VERSION = 2;
+const SEED_VERSION = 3;
 const SEED_VERSION_KEY = '_seed_version';
 const REVIEW_SEED_VERSION = 1;
 const REVIEW_SEED_VERSION_KEY = '_review_seed_version';
@@ -67,14 +67,14 @@ function normalizeImages(product) {
 export async function ensureProductSeeded(force = false) {
   const store = productStore();
 
-  if (!force) {
-    // Check stored seed version — reseed if it's missing or outdated.
-    const storedVersion = await store.get(SEED_VERSION_KEY, { type: 'json' }).catch(() => null);
-    if (storedVersion?.v === SEED_VERSION) {
-      const existing = await store.list();
-      if (existing.blobs?.filter((b) => b.key !== SEED_VERSION_KEY).length) {
-        return { seeded: false, written: 0 };
-      }
+  // Snapshot what's already stored so we can preserve admin edits.
+  const existingList = await store.list().catch(() => ({ blobs: [] }));
+  const existingKeys = new Set((existingList.blobs || []).map((b) => b.key));
+  const storedVersion = await store.get(SEED_VERSION_KEY, { type: 'json' }).catch(() => null);
+
+  if (!force && storedVersion?.v === SEED_VERSION) {
+    if (existingList.blobs?.filter((b) => b.key !== SEED_VERSION_KEY).length) {
+      return { seeded: false, written: 0 };
     }
   }
 
@@ -82,6 +82,9 @@ export async function ensureProductSeeded(force = false) {
   let written = 0;
   for (const product of seedProducts) {
     const normalized = normalizeImages(product);
+    // Only write if the product doesn't already exist OR we're doing a forced reseed.
+    // This way, version bumps add new SKUs without clobbering admin edits to existing ones.
+    if (!force && existingKeys.has(normalized.id)) continue;
     await store.setJSON(normalized.id, { ...normalized, created_at: now, updated_at: now });
     written++;
   }

@@ -15,6 +15,7 @@
     <ul class="nav-links">
       <li><a href="/" data-page="home">Home</a></li>
       <li><a href="/services" data-page="services">Services</a></li>
+      <li><a href="/saunas" data-page="saunas">Saunas</a></li>
       <li><a href="/portfolio" data-page="portfolio">Portfolio</a></li>
       <li><a href="/shop" data-page="shop">Shop</a></li>
       <li><a href="/about" data-page="about">About</a></li>
@@ -42,6 +43,7 @@
   const MOBILE_NAV_HTML = `
     <a href="/">Home</a>
     <a href="/services">Services</a>
+    <a href="/saunas">Saunas</a>
     <a href="/portfolio">Portfolio</a>
     <a href="/shop">Shop</a>
     <a href="/about">About</a>
@@ -74,6 +76,7 @@
         <ul>
           <li><a href="/">Home</a></li>
           <li><a href="/services">Services</a></li>
+          <li><a href="/saunas">Saunas</a></li>
           <li><a href="/portfolio">Portfolio</a></li>
           <li><a href="/shop">Shop</a></li>
           <li><a href="/about">About</a></li>

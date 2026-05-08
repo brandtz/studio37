@@ -8,7 +8,8 @@
     'cutting-boards':  (p) => /cutting/i.test(p.name) || /chopping|butcher/i.test(p.name),
     'charcuterie':     (p) => /charcuterie/i.test(p.name),
     'furniture':       (p) => p.category === 'furniture',
-    'custom':          (p) => p.status === 'by_request',
+    'saunas':          (p) => p.category === 'saunas',
+    'custom':          (p) => p.status === 'by_request' && p.category !== 'saunas',
   };
 
   let products = [];
