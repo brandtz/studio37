@@ -4,6 +4,12 @@
   publish = "src"
   functions = "src/netlify/functions"
 
+[build.environment]
+  # Netlify's secrets scanner false-positives on these keys because substrings of
+  # the whsec_ values appear in CSS hex colors in tokens.css and design handoff files.
+  # The actual secrets are NOT hardcoded in the repo — they live only in Netlify env vars.
+  SECRETS_SCAN_OMIT_KEYS = "STRIPE_WEBHOOK_SECRET,STRIPE_WEBHOOK_SECRET_PLATFORM"
+
 [functions]
   node_bundler = "esbuild"
   # Default Node.js runtime — overridable per-function if needed.
