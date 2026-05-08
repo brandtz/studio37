@@ -219,6 +219,48 @@
     showLogin();
   });
 
+  // ── change password ────────────────────────────────────
+  function openPwdDrawer() {
+    $('#pwd-current').value = '';
+    $('#pwd-new1').value = '';
+    $('#pwd-new2').value = '';
+    $('#pwd-error').textContent = '';
+    $('#pwd-drawer').setAttribute('aria-hidden', 'false');
+    $('#pwd-drawer').classList.add('open');
+    $('#pwd-drawer-overlay').classList.add('open');
+    setTimeout(() => $('#pwd-current').focus(), 50);
+  }
+  function closePwdDrawer() {
+    $('#pwd-drawer').setAttribute('aria-hidden', 'true');
+    $('#pwd-drawer').classList.remove('open');
+    $('#pwd-drawer-overlay').classList.remove('open');
+  }
+  $('#change-password').addEventListener('click', (e) => { e.preventDefault(); openPwdDrawer(); });
+  $('#pwd-drawer-close').addEventListener('click', closePwdDrawer);
+  $('#pwd-drawer-cancel').addEventListener('click', closePwdDrawer);
+  $('#pwd-drawer-overlay').addEventListener('click', closePwdDrawer);
+  $('#pwd-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const currentPassword = $('#pwd-current').value;
+    const newPassword = $('#pwd-new1').value;
+    const confirm = $('#pwd-new2').value;
+    const errEl = $('#pwd-error');
+    errEl.textContent = '';
+    if (newPassword.length < 8) { errEl.textContent = 'Password must be at least 8 characters.'; return; }
+    if (newPassword !== confirm) { errEl.textContent = 'New passwords do not match.'; return; }
+    if (newPassword === currentPassword) { errEl.textContent = 'New password must differ from current.'; return; }
+    try {
+      await api('/api/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      closePwdDrawer();
+      toast('Password updated.');
+    } catch (err) {
+      errEl.textContent = err.message || 'Could not update password.';
+    }
+  });
+
   // ── nav ────────────────────────────────────────────────
   $$('.admin-nav a').forEach((a) => {
     a.addEventListener('click', (e) => {

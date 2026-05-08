@@ -9,6 +9,9 @@
   # the whsec_ values appear in CSS hex colors in tokens.css and design handoff files.
   # The actual secrets are NOT hardcoded in the repo — they live only in Netlify env vars.
   SECRETS_SCAN_OMIT_KEYS = "STRIPE_WEBHOOK_SECRET,STRIPE_WEBHOOK_SECRET_PLATFORM"
+  # users.seed.json contains a bcrypt password hash for the bootstrap admin.
+  # bcrypt hashes are one-way and safe to commit, but the scanner flags high-entropy strings.
+  SECRETS_SCAN_OMIT_PATHS = "src/netlify/functions/_lib/users.seed.json"
 
 [functions]
   node_bundler = "esbuild"
@@ -115,6 +118,11 @@
 [[redirects]]
   from = "/api/auth/set-password"
   to = "/.netlify/functions/auth-set-password"
+  status = 200
+
+[[redirects]]
+  from = "/api/auth/change-password"
+  to = "/.netlify/functions/auth-change-password"
   status = 200
 
 [[redirects]]

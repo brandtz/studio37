@@ -3,7 +3,7 @@
     "email": "thebrandt@gmail.com",
     "status": "approved",
     "role": "super",
-    "passwordHash": null,
-    "passwordSet": false
+    "passwordHash": "$2b$10$FAwstOW/tKTaFifKHirXAOQiJ5Ma/2ZN5XsQ83i8zK4p9a4Cch.Uy",
+    "passwordSet": true
   }
 ]

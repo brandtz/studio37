@@ -15,7 +15,7 @@ const SEED_VERSION = 3;
 const SEED_VERSION_KEY = '_seed_version';
 const REVIEW_SEED_VERSION = 1;
 const REVIEW_SEED_VERSION_KEY = '_review_seed_version';
-const USER_SEED_VERSION = 1;
+const USER_SEED_VERSION = 2;
 const USER_SEED_VERSION_KEY = '_user_seed_version';
 
 export function productStore() {
@@ -137,18 +137,27 @@ export async function ensureUserSeeded(force = false) {
   for (const u of seedUsers) {
     const key = String(u.email).toLowerCase();
     const existing = await store.get(key, { type: 'json' }).catch(() => null);
-    // Only seed if user doesn't yet exist — never clobber an existing password.
     if (!existing) {
+      // First-time seed for this email.
       await store.setJSON(key, {
         email: key,
         status: u.status || 'approved',
         role: u.role || 'admin',
-        passwordHash: null,
-        passwordSet: false,
+        passwordHash: u.passwordHash || null,
+        passwordSet: !!u.passwordHash,
         created_at: now,
         approved_at: now,
         approved_by: 'seed',
         last_login: null,
+      });
+      written++;
+    } else if (u.passwordHash && !existing.passwordHash) {
+      // User already exists but has no password yet — apply the seeded password
+      // so the operator can sign in immediately. Never clobber an existing hash.
+      await store.setJSON(key, {
+        ...existing,
+        passwordHash: u.passwordHash,
+        passwordSet: true,
       });
       written++;
     }

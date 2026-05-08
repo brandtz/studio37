@@ -128,6 +128,8 @@
         <span style="display:block;font-size:.75rem;color:var(--color-text-muted);margin-bottom:var(--space-2);" id="who-am-i"></span>
         <a href="/" target="_blank" rel="noopener">View Site &rarr;</a>
         <br/><br/>
+        <a href="#" id="change-password">Change password</a>
+        <br/><br/>
         <a href="#" id="logout">Sign out</a>
       </div>
     </aside>
@@ -426,6 +428,37 @@
     <footer class="drawer-foot">
       <button class="btn-admin-ghost" type="button" id="review-drawer-cancel">Cancel</button>
       <button class="btn-admin" type="submit" form="review-form">Save Review</button>
+    </footer>
+  </aside>
+
+  <!-- ── CHANGE PASSWORD DRAWER ────────────────────────── -->
+  <div class="drawer-overlay" id="pwd-drawer-overlay"></div>
+  <aside class="drawer" id="pwd-drawer" aria-hidden="true">
+    <header class="drawer-head">
+      <h3>Change Password</h3>
+      <button class="btn-admin-ghost" id="pwd-drawer-close" aria-label="Close">&times;</button>
+    </header>
+    <form class="drawer-body" id="pwd-form">
+      <p style="color:var(--color-text-muted);font-size:.9rem;margin:0 0 var(--space-4);">
+        Choose a new password (8+ characters). You'll stay signed in after the change.
+      </p>
+      <div class="form-field">
+        <label class="form-label" for="pwd-current">Current password</label>
+        <input class="form-input" id="pwd-current" type="password" autocomplete="current-password" required />
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="pwd-new1">New password</label>
+        <input class="form-input" id="pwd-new1" type="password" autocomplete="new-password" minlength="8" required />
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="pwd-new2">Confirm new password</label>
+        <input class="form-input" id="pwd-new2" type="password" autocomplete="new-password" minlength="8" required />
+      </div>
+      <p class="admin-login-error" id="pwd-error"></p>
+    </form>
+    <footer class="drawer-foot">
+      <button class="btn-admin-ghost" type="button" id="pwd-drawer-cancel">Cancel</button>
+      <button class="btn-admin" type="submit" form="pwd-form">Update Password</button>
     </footer>
   </aside>
 
