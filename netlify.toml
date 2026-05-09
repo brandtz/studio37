@@ -33,16 +33,6 @@
   status = 200
 
 [[redirects]]
-  from = "/api/admin/products"
-  to = "/.netlify/functions/admin-products"
-  status = 200
-
-[[redirects]]
-  from = "/api/admin/products/:id"
-  to = "/.netlify/functions/admin-products?id=:id"
-  status = 200
-
-[[redirects]]
   from = "/api/admin/upload"
   to = "/.netlify/functions/admin-upload"
   status = 200
@@ -99,15 +89,6 @@
   to = "/.netlify/functions/reviews"
   status = 200
 
-[[redirects]]
-  from = "/api/admin/reviews"
-  to = "/.netlify/functions/admin-reviews"
-  status = 200
-
-[[redirects]]
-  from = "/api/admin/reviews/:id"
-  to = "/.netlify/functions/admin-reviews?id=:id"
-  status = 200
 
 # Auth
 [[redirects]]

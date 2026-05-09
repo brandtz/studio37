@@ -11,7 +11,7 @@ export default async (req) => {
   await ensureReviewSeeded();
 
   const url = new URL(req.url);
-  const id = url.searchParams.get('id');
+  const id = req.params?.id || url.searchParams.get('id') || null;
   const store = reviewStore();
 
   if (req.method === 'GET') {
@@ -74,4 +74,6 @@ function sanitize(r) {
   return out;
 }
 
-export const config = { path: '/.netlify/functions/admin-reviews' };
+export const config = {
+  path: ['/api/admin/reviews', '/api/admin/reviews/:id'],
+};

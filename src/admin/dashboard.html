@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en" data-page="admin-dashboard">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Studio 37 Admin</title>
+  <link rel="icon" href="/assets/images/logo-mark.png" />
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/admin.css" />
+  <script defer src="/assets/js/admin.js"></script>
+</head>
+<body class="admin grain">
+
+  <!-- ── DASHBOARD LAYOUT ───────────────────────────────── -->
+  <section class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar-logo">
+        <img src="/assets/images/logo-mark.png" alt="Studio 37" />
+        <span class="label">Admin</span>
+      </div>
+      <ul class="admin-nav">
+        <li><a href="#products" class="active" data-section="products">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><polyline points="3.3 7 12 12 20.7 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg>
+          Products
+        </a></li>
+        <li><a href="#media" data-section="media">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-4-4L5 21"/></svg>
+          Media
+        </a></li>
+        <li><a href="#reviews" data-section="reviews">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5h16v10H7l-3 3V5Z"/><path d="M9 9h6"/><path d="M9 12h4"/></svg>
+          Reviews
+        </a></li>
+        <li><a href="#orders" data-section="orders">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Orders
+        </a></li>
+        <li><a href="#leads" data-section="leads">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16v12H5.2L2 19V4Z"/></svg>
+          Leads
+        </a></li>
+        <li data-nav-users hidden><a href="#users" data-section="users">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Users
+        </a></li>
+        <li data-nav-connect hidden><a href="#connect" data-section="connect">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="14" x2="10" y2="14"/></svg>
+          Payments
+        </a></li>
+      </ul>
+      <div class="admin-sidebar-foot">
+        <span style="display:block;font-size:.75rem;color:var(--color-text-muted);margin-bottom:var(--space-2);" id="who-am-i"></span>
+        <a href="/" target="_blank" rel="noopener">View Site &rarr;</a>
+        <br/><br/>
+        <a href="#" id="change-password">Change password</a>
+        <br/><br/>
+        <a href="#" id="logout">Sign out</a>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <header class="admin-topbar">
+        <h2 id="section-title">Products</h2>
+        <div class="admin-topbar-actions">
+          <button class="btn-admin" id="new-product-btn">+ New Product</button>
+          <button class="btn-admin" id="new-review-btn" hidden>+ New Review</button>
+          <button class="btn-admin" id="new-user-btn" hidden>+ Invite User</button>
+        </div>
+      </header>
+      <div class="admin-content">
+        <!-- PRODUCTS SECTION -->
+        <section id="section-products">
+          <div class="admin-toolbar">
+            <input type="search" id="search" placeholder="Search products&hellip;" />
+            <select id="status-filter">
+              <option value="all">All statuses</option>
+              <option value="available">Available</option>
+              <option value="out_of_stock">Out of Stock</option>
+              <option value="by_request">By Request</option>
+              <option value="archived">Archived</option>
+            </select>
+            <select id="category-filter">
+              <option value="all">All categories</option>
+              <option value="small-goods">Small Goods</option>
+              <option value="furniture">Furniture</option>
+              <option value="cabinetry">Cabinetry</option>
+              <option value="slab-work">Slab Work</option>
+              <option value="saunas">Saunas</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th style="width:80px;"></th>
+                <th>Product</th>
+                <th style="width:120px;">Price</th>
+                <th style="width:160px;">Status</th>
+                <th style="width:120px;text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="products-tbody">
+              <tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Loading&hellip;</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- MEDIA SECTION -->
+        <section id="section-media" hidden>
+          <div class="admin-toolbar">
+            <select id="media-product-select">
+              <option value="">Select a product</option>
+            </select>
+            <label class="upload-zone" id="media-upload-zone" style="max-width:360px;">
+              <input type="file" id="media-upload-input" accept="image/*" multiple style="display:none;" />
+              <span>Upload photos to selected product</span>
+            </label>
+          </div>
+          <div id="media-empty" style="color:var(--color-text-muted);padding:var(--space-4) 0;">Select a product to manage photos.</div>
+          <div class="image-thumbs" id="media-thumbs"></div>
+        </section>
+
+        <!-- REVIEWS SECTION -->
+        <section id="section-reviews" hidden>
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th style="width:120px;">Rating</th>
+                <th>Review</th>
+                <th style="width:160px;">Author</th>
+                <th style="width:120px;">Status</th>
+                <th style="width:120px;text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="reviews-tbody">
+              <tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Loading&hellip;</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ORDERS SECTION -->
+        <section id="section-orders" hidden>
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th style="width:160px;">When</th>
+                <th>Customer</th>
+                <th>Items</th>
+                <th style="width:120px;">Total</th>
+                <th style="width:120px;">Status</th>
+                <th style="width:120px;text-align:right;">Stripe</th>
+              </tr>
+            </thead>
+            <tbody id="orders-tbody">
+              <tr><td colspan="6" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Loading&hellip;</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- LEADS SECTION -->
+        <section id="section-leads" hidden>
+          <table class="admin-table">
+            <thead>
+              <tr><th>When</th><th>Name</th><th>Service</th><th>Phone</th><th>Email</th></tr>
+            </thead>
+            <tbody id="leads-tbody">
+              <tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Loading&hellip;</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- USERS SECTION (super only) -->
+        <section id="section-users" hidden>
+          <h3 style="margin:var(--space-4) 0 var(--space-2);font-size:1rem;color:var(--color-text-muted);">Pending requests</h3>
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Name / Message</th>
+                <th>Requested</th>
+                <th style="width:200px;text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-pending-tbody">
+              <tr><td colspan="4" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Loading&hellip;</td></tr>
+            </tbody>
+          </table>
+
+          <h3 style="margin:var(--space-6) 0 var(--space-2);font-size:1rem;color:var(--color-text-muted);">Active users</h3>
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Last login</th>
+                <th style="width:280px;text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-active-tbody">
+              <tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Loading&hellip;</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- CONNECT / PAYMENTS SECTION (super only) -->
+        <section id="section-connect" hidden>
+          <p style="color:var(--color-text-muted);max-width:680px;margin-bottom:var(--space-5);">
+            Manage Stripe Connect accounts for each tenant. Each tenant has its own Stripe account
+            (Standard) — they own the funds, taxes, and customer-facing payment flows. Onboarding
+            opens a Stripe-hosted form for KYC and bank setup.
+          </p>
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Tenant</th>
+                <th>Stripe account</th>
+                <th>Charges</th>
+                <th>Payouts</th>
+                <th>Requirements</th>
+                <th style="width:220px;text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="connect-tbody">
+              <tr><td colspan="6" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Loading&hellip;</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
+    </main>
+  </section>
+
+  <!-- ── EDIT DRAWER ────────────────────────────────────── -->
+  <div class="drawer-overlay" id="drawer-overlay"></div>
+  <aside class="drawer" id="drawer" aria-hidden="true">
+    <header class="drawer-head">
+      <h3 id="drawer-title">Edit Product</h3>
+      <button class="btn-admin-ghost" id="drawer-close" aria-label="Close">&times;</button>
+    </header>
+    <form class="drawer-body" id="product-form">
+      <input type="hidden" name="id" id="f-id" />
+
+      <div class="form-field">
+        <label class="form-label" for="f-name">Name</label>
+        <input class="form-input" id="f-name" name="name" required />
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="f-subtitle">Subtitle / wood species</label>
+        <input class="form-input" id="f-subtitle" name="subtitle" />
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label" for="f-category">Category</label>
+          <select class="form-select" id="f-category" name="category">
+            <option value="small-goods">Small Goods</option>
+            <option value="furniture">Furniture</option>
+            <option value="cabinetry">Cabinetry</option>
+            <option value="slab-work">Slab Work</option>
+            <option value="saunas">Saunas</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="f-price">Price (USD)</label>
+          <input class="form-input" id="f-price" name="price" type="number" step="0.01" min="0" />
+        </div>
+      </div>
+
+      <div class="form-field">
+        <span class="form-label">Status</span>
+        <div class="pill-group">
+          <label class="pill-radio"><input type="radio" name="status" value="available" checked /><span>Available</span></label>
+          <label class="pill-radio"><input type="radio" name="status" value="out_of_stock" /><span>Out of Stock</span></label>
+          <label class="pill-radio"><input type="radio" name="status" value="by_request" /><span>By Request</span></label>
+          <label class="pill-radio"><input type="radio" name="status" value="archived" /><span>Archive</span></label>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="f-description">Description</label>
+        <textarea class="form-textarea" id="f-description" name="description"></textarea>
+      </div>
+
+      <div class="form-field">
+        <span class="form-label">Photos</span>
+        <label class="upload-zone" id="f-upload-zone">
+          <input type="file" id="f-photos" accept="image/*" multiple style="display:none;" />
+          <span>Click to upload (up to 5)</span>
+        </label>
+        <div class="image-thumbs" id="f-thumbs"></div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">
+          <input type="checkbox" id="f-shipping" name="shipping" checked /> Ships to USA
+        </label>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="f-weight">Weight (oz, for shipping)</label>
+        <input class="form-input" id="f-weight" name="weight_oz" type="number" min="0" />
+      </div>
+    </form>
+    <footer class="drawer-foot">
+      <button class="btn-admin-ghost" type="button" id="drawer-cancel">Cancel</button>
+      <button class="btn-admin" type="submit" form="product-form">Save Product</button>
+    </footer>
+  </aside>
+
+  <!-- ── REVIEW DRAWER ─────────────────────────────────── -->
+  <div class="drawer-overlay" id="review-drawer-overlay"></div>
+  <aside class="drawer" id="review-drawer" aria-hidden="true">
+    <header class="drawer-head">
+      <h3 id="review-drawer-title">Edit Review</h3>
+      <button class="btn-admin-ghost" id="review-drawer-close" aria-label="Close">&times;</button>
+    </header>
+    <form class="drawer-body" id="review-form">
+      <input type="hidden" id="r-id" />
+
+      <div class="form-field">
+        <label class="form-label" for="r-name">Customer Name</label>
+        <input class="form-input" id="r-name" required />
+      </div>
+
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label" for="r-location">Location</label>
+          <input class="form-input" id="r-location" placeholder="Springfield, OR" />
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="r-stars">Stars (1-5)</label>
+          <input class="form-input" id="r-stars" type="number" min="1" max="5" value="5" required />
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="r-project">Project</label>
+        <input class="form-input" id="r-project" placeholder="Custom Built-in Cabinetry" />
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="r-text">Review Text</label>
+        <textarea class="form-textarea" id="r-text" required></textarea>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">
+          <input type="checkbox" id="r-published" checked /> Published
+        </label>
+      </div>
+    </form>
+    <footer class="drawer-foot">
+      <button class="btn-admin-ghost" type="button" id="review-drawer-cancel">Cancel</button>
+      <button class="btn-admin" type="submit" form="review-form">Save Review</button>
+    </footer>
+  </aside>
+
+  <!-- ── CHANGE PASSWORD DRAWER ────────────────────────── -->
+  <div class="drawer-overlay" id="pwd-drawer-overlay"></div>
+  <aside class="drawer" id="pwd-drawer" aria-hidden="true">
+    <header class="drawer-head">
+      <h3>Change Password</h3>
+      <button class="btn-admin-ghost" id="pwd-drawer-close" aria-label="Close">&times;</button>
+    </header>
+    <form class="drawer-body" id="pwd-form">
+      <p style="color:var(--color-text-muted);font-size:.9rem;margin:0 0 var(--space-4);">
+        Choose a new password (8+ characters). You'll stay signed in after the change.
+      </p>
+      <div class="form-field">
+        <label class="form-label" for="pwd-current">Current password</label>
+        <input class="form-input" id="pwd-current" type="password" autocomplete="current-password" required />
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="pwd-new1">New password</label>
+        <input class="form-input" id="pwd-new1" type="password" autocomplete="new-password" minlength="8" required />
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="pwd-new2">Confirm new password</label>
+        <input class="form-input" id="pwd-new2" type="password" autocomplete="new-password" minlength="8" required />
+      </div>
+      <p class="admin-login-error" id="pwd-error"></p>
+    </form>
+    <footer class="drawer-foot">
+      <button class="btn-admin-ghost" type="button" id="pwd-drawer-cancel">Cancel</button>
+      <button class="btn-admin" type="submit" form="pwd-form">Update Password</button>
+    </footer>
+  </aside>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

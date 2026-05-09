@@ -11,7 +11,9 @@ export default async (req) => {
   await ensureProductSeeded();
 
   const url = new URL(req.url);
-  const id = url.searchParams.get('id');
+  // req.params.id is set by Functions v2 path routing; fall back to query string for
+  // any legacy redirect paths.
+  const id = req.params?.id || url.searchParams.get('id') || null;
   const store = productStore();
 
   // ── GET (list all, including archived) ──
@@ -21,7 +23,7 @@ export default async (req) => {
     for (const b of blobs) {
       if (b.key.startsWith('_')) continue; // skip internal meta keys
       const p = await store.get(b.key, { type: 'json' });
-      if (p) out.push(p);
+      if (p) out.push({ ...p, id: p.id || b.key }); // ensure id always set
     }
     out.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
     return json(out);
@@ -82,4 +84,6 @@ function sanitize(p) {
   return out;
 }
 
-export const config = { path: '/.netlify/functions/admin-products' };
+export const config = {
+  path: ['/api/admin/products', '/api/admin/products/:id'],
+};
