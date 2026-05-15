@@ -8,9 +8,21 @@
 
 import { json, userStore, ensureUserSeeded, nowIso } from './_lib/store.mjs';
 import { signSession, signSetupToken, verifyPassword } from './_lib/auth.mjs';
+import { checkRateLimit, clientIp } from './_lib/rate-limit.mjs';
 
 export default async (req) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
+
+  // Per-IP rate limit: 5 attempts / minute. Blunts password brute force.
+  const ip = clientIp(req);
+  const ipRl = await checkRateLimit({ key: `login:ip:${ip}`, limit: 5, windowMs: 60_000 });
+  if (!ipRl.allowed) {
+    return json(
+      { error: 'too_many_attempts', message: 'Too many attempts. Try again in a minute.', retry_after: ipRl.retryAfterSec },
+      429,
+      { 'retry-after': String(ipRl.retryAfterSec) },
+    );
+  }
 
   await ensureUserSeeded();
 
@@ -19,6 +31,16 @@ export default async (req) => {
   const password = String(body?.password || '');
   if (!email) return json({ error: 'email_required' }, 400);
   if (!password) return json({ error: 'password_required', message: 'Password is required.' }, 400);
+
+  // Per-email rate limit: 10 attempts / 10 minutes. Stops slow distributed guessing.
+  const emailRl = await checkRateLimit({ key: `login:email:${email}`, limit: 10, windowMs: 10 * 60_000 });
+  if (!emailRl.allowed) {
+    return json(
+      { error: 'too_many_attempts', message: 'Account temporarily locked. Try again later.', retry_after: emailRl.retryAfterSec },
+      429,
+      { 'retry-after': String(emailRl.retryAfterSec) },
+    );
+  }
 
   const store = userStore();
   const user = await store.get(email, { type: 'json' });

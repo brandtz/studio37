@@ -3,6 +3,7 @@
 // and sends an SMS to Drew via Twilio.
 
 import { leadStore, json, nowIso } from './_lib/store.mjs';
+import { checkRateLimit, clientIp } from './_lib/rate-limit.mjs';
 import twilio from 'twilio';
 
 const SERVICE_LABEL = {
@@ -22,8 +23,25 @@ const BUDGET_LABEL = {
   'not-sure': 'Not sure',
 };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_DESCRIPTION = 5000;
+const MAX_NAME = 80;
+const MAX_FIELD = 160;
+
 export default async (req) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
+
+  const ip = clientIp(req);
+
+  // Per-IP rate limit: 3 submissions / hour. Stops Twilio cost-bomb attacks.
+  const ipRl = await checkRateLimit({ key: `quote:ip:${ip}`, limit: 3, windowMs: 60 * 60 * 1000 });
+  if (!ipRl.allowed) {
+    return json(
+      { error: 'too_many_requests', message: 'Too many requests from this network. Please try again later.', retry_after: ipRl.retryAfterSec },
+      429,
+      { 'retry-after': String(ipRl.retryAfterSec) },
+    );
+  }
 
   const ct = req.headers.get('content-type') || '';
   let fields = {};
@@ -44,19 +62,37 @@ export default async (req) => {
     if (!fields[f]) return json({ error: `missing field: ${f}` }, 400);
   }
 
+  // Validation
+  const email = String(fields.email).trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) return json({ error: 'invalid_email' }, 400);
+
+  const phoneDigits = String(fields.phone).replace(/\D/g, '');
+  if (phoneDigits.length < 10) return json({ error: 'invalid_phone' }, 400);
+
+  // Per-email rate limit: 5 / day. Stops single-email spam.
+  const emailRl = await checkRateLimit({ key: `quote:email:${email}`, limit: 5, windowMs: 24 * 60 * 60 * 1000 });
+  if (!emailRl.allowed) {
+    return json(
+      { error: 'too_many_requests', message: 'Please give us a chance to respond before sending more requests.', retry_after: emailRl.retryAfterSec },
+      429,
+      { 'retry-after': String(emailRl.retryAfterSec) },
+    );
+  }
+
+  const trim = (s, max) => String(s || '').slice(0, max);
   const lead = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     created_at: nowIso(),
-    firstName: fields.firstName,
-    lastName: fields.lastName,
-    email: fields.email,
-    phone: fields.phone,
-    service: fields.service,
-    description: fields.description,
-    location: fields.location || '',
-    budget: fields.budget || '',
-    contactMethod: fields.contactMethod || '',
-    referral: fields.referral || '',
+    firstName: trim(fields.firstName, MAX_NAME),
+    lastName: trim(fields.lastName, MAX_NAME),
+    email,
+    phone: trim(fields.phone, 32),
+    service: trim(fields.service, 40),
+    description: trim(fields.description, MAX_DESCRIPTION),
+    location: trim(fields.location, MAX_FIELD),
+    budget: trim(fields.budget, 40),
+    contactMethod: trim(fields.contactMethod, 40),
+    referral: trim(fields.referral, 40),
   };
 
   // Persist

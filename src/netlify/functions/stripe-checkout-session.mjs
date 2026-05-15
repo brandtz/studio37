@@ -125,8 +125,8 @@ export default async (req) => {
     });
     return json({ url: session.url, id: session.id });
   } catch (err) {
-    console.error('[stripe-checkout-session] create failed', err?.message || err);
-    return json({ error: 'stripe_error', message: err?.message || 'Could not start checkout.' }, 502);
+    console.error('[stripe-checkout-session] create failed', err);
+    return json({ error: 'stripe_error', message: 'Could not start checkout.' }, 502);
   }
 };
 

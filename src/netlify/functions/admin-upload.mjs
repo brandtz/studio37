@@ -20,7 +20,9 @@ export default async (req) => {
   } = process.env;
 
   if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY || !R2_SECRET_KEY || !R2_BUCKET || !R2_PUBLIC_BASE) {
-    return json({ error: 'r2_not_configured', missing: ['R2_ACCOUNT_ID','R2_ACCESS_KEY','R2_SECRET_KEY','R2_BUCKET','R2_PUBLIC_BASE'].filter((k) => !process.env[k]) }, 500);
+    const missing = ['R2_ACCOUNT_ID','R2_ACCESS_KEY','R2_SECRET_KEY','R2_BUCKET','R2_PUBLIC_BASE'].filter((k) => !process.env[k]);
+    console.warn('[admin-upload] storage not configured; missing env:', missing);
+    return json({ error: 'storage_unavailable' }, 500);
   }
 
   const form = await req.formData();

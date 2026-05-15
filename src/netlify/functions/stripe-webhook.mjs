@@ -74,6 +74,24 @@ export default async (req) => {
 async function onCheckoutComplete(session, connectedAccount) {
   const tenantId = session?.metadata?.tenant_id || 'studio37';
 
+  // IDEMPOTENCY: if we've already persisted this session, skip the heavy work.
+  // Stripe will retry on 5xx/timeout — without this guard we'd duplicate orders
+  // and double-text Drew.
+  let existing = null;
+  try {
+    existing = await orderStore().get(session.id, { type: 'json' });
+  } catch { /* treat as not-found */ }
+
+  if (existing && existing.id === session.id) {
+    if (existing.sms_sent) {
+      console.log('[stripe-webhook] duplicate event (already SMSd), skipping', session.id);
+      return;
+    }
+    // Order persisted previously but SMS hadn't yet succeeded — retry only the SMS.
+    await maybeSendOrderSms(existing);
+    return;
+  }
+
   // Fetch line items expanded — Stripe doesn't include them on the bare session.
   let lineItems = [];
   try {
@@ -105,6 +123,8 @@ async function onCheckoutComplete(session, connectedAccount) {
       amount_total: li.amount_total,
       product_id: li.price?.product_metadata?.product_id || li.price?.metadata?.product_id || null,
     })),
+    sms_sent: false,
+    sms_sent_at: null,
   };
 
   try {
@@ -113,21 +133,32 @@ async function onCheckoutComplete(session, connectedAccount) {
     console.error('[stripe-webhook] persist order failed', err);
   }
 
-  // Notify Drew via SMS
+  await maybeSendOrderSms(order);
+}
+
+async function maybeSendOrderSms(order) {
+  if (order.sms_sent) return;
+  const { TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM, DREW_PHONE } = process.env;
+  if (!(TWILIO_SID && TWILIO_TOKEN && TWILIO_FROM && DREW_PHONE)) return;
+
   try {
-    const { TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM, DREW_PHONE } = process.env;
-    if (TWILIO_SID && TWILIO_TOKEN && TWILIO_FROM && DREW_PHONE) {
-      const summary = order.items.map((i) => `${i.quantity}× ${i.description}`).join(', ').slice(0, 240);
-      const total = order.amount_total != null ? `$${(order.amount_total / 100).toFixed(2)}` : '';
-      const msg = [
-        `🛒 New Studio 37 Order!`,
-        summary ? `Items: ${summary}` : null,
-        total ? `Total: ${total}` : null,
-        order.customer_name ? `Buyer: ${order.customer_name}` : null,
-        `Stripe → studio37customdesign.netlify.app/admin (Orders)`,
-      ].filter(Boolean).join('\n');
-      const client = twilio(TWILIO_SID, TWILIO_TOKEN);
-      await client.messages.create({ from: TWILIO_FROM, to: DREW_PHONE, body: msg });
+    const summary = (order.items || []).map((i) => `${i.quantity}× ${i.description}`).join(', ').slice(0, 240);
+    const total = order.amount_total != null ? `$${(order.amount_total / 100).toFixed(2)}` : '';
+    const msg = [
+      `🛒 New Studio 37 Order!`,
+      summary ? `Items: ${summary}` : null,
+      total ? `Total: ${total}` : null,
+      order.customer_name ? `Buyer: ${order.customer_name}` : null,
+      `Stripe → studio37customdesign.netlify.app/admin (Orders)`,
+    ].filter(Boolean).join('\n');
+    const client = twilio(TWILIO_SID, TWILIO_TOKEN);
+    await client.messages.create({ from: TWILIO_FROM, to: DREW_PHONE, body: msg });
+
+    // Mark SMS as sent so a Stripe retry doesn't re-text.
+    try {
+      await orderStore().setJSON(order.id, { ...order, sms_sent: true, sms_sent_at: new Date().toISOString() });
+    } catch (err) {
+      console.warn('[stripe-webhook] could not flag sms_sent', err?.message);
     }
   } catch (err) {
     console.error('[stripe-webhook] SMS failed', err?.message || err);

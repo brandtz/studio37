@@ -1,5 +1,12 @@
 // Auth helpers — JWT session tokens (jose) + bcryptjs password hashing.
 // Tokens are passed via Authorization: Bearer <token> from the admin SPA.
+//
+// LEGACY ADMIN KEY FALLBACK
+// -------------------------
+// A static `X-Admin-Key: ${ADMIN_KEY}` header is accepted ONLY when
+// `process.env.LEGACY_ADMIN_KEY_FALLBACK === 'on'` (explicit opt-in).
+// Default behavior is fallback DISABLED, even if ADMIN_KEY is set.
+// Scheduled for full removal after 2026-06-30.
 
 import { SignJWT, jwtVerify } from 'jose';
 import bcrypt from 'bcryptjs';
@@ -113,10 +120,12 @@ export async function requireSession(req, { minRole = 'admin' } = {}) {
   }
 
   // Legacy fallback: X-Admin-Key matches ADMIN_KEY env var.
-  if (process.env.LEGACY_ADMIN_KEY_FALLBACK !== 'off') {
+  // OPT-IN ONLY: requires LEGACY_ADMIN_KEY_FALLBACK === 'on'.
+  if (process.env.LEGACY_ADMIN_KEY_FALLBACK === 'on') {
     const expected = process.env.ADMIN_KEY;
     const got = req.headers.get('x-admin-key');
     if (expected && got === expected) {
+      console.warn('[auth] DEPRECATED legacy ADMIN_KEY used — remove before 2026-06-30');
       return { user: { email: 'legacy-admin', role: 'super', status: 'approved' } };
     }
   }

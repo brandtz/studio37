@@ -89,7 +89,7 @@ export default async (req) => {
       return json({ url: link.url, account: acctId });
     } catch (err) {
       console.error('[stripe-connect] onboard failed', err);
-      return json({ error: 'stripe_error', message: err?.message }, 502);
+      return json({ error: 'stripe_error' }, 502);
     }
   }
 
@@ -110,7 +110,7 @@ export default async (req) => {
       return json({ url: link.url, note: 'For Standard accounts, daily logins happen at dashboard.stripe.com' });
     } catch (err) {
       console.error('[stripe-connect] login-link failed', err);
-      return json({ error: 'stripe_error', message: err?.message }, 502);
+      return json({ error: 'stripe_error' }, 502);
     }
   }
 
@@ -130,7 +130,7 @@ export default async (req) => {
       });
     } catch (err) {
       console.error('[stripe-connect] status failed', err);
-      return json({ error: 'stripe_error', message: err?.message }, 502);
+      return json({ error: 'stripe_error' }, 502);
     }
   }
 
@@ -145,7 +145,8 @@ async function resolveTenantOrFail(tenantId) {
     }
     return { value: t };
   } catch (err) {
-    return { error: json({ error: 'tenant_lookup_failed', message: err?.message }, 500) };
+    console.error('[stripe-connect] tenant lookup failed', err);
+    return { error: json({ error: 'tenant_lookup_failed' }, 500) };
   }
 }
 

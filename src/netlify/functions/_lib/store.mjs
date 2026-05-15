@@ -12,6 +12,7 @@ export const REVIEW_STORE = 'reviews';
 export const USER_STORE = 'users';
 export const CATEGORY_STORE = 'categories';
 export const SITE_MEDIA_STORE = 'site_media';
+export const RATE_LIMIT_STORE = 'rate_limits';
 
 // Bump this whenever the seed data changes — triggers auto-migration on next cold start.
 const SEED_VERSION = 3;
@@ -45,6 +46,10 @@ export function categoryStore() {
 
 export function siteMediaStore() {
   return getStore({ name: SITE_MEDIA_STORE, consistency: 'strong' });
+}
+
+export function rateLimitStore() {
+  return getStore({ name: RATE_LIMIT_STORE, consistency: 'strong' });
 }
 
 export const json = (body, status = 200, extra = {}) =>
