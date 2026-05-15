@@ -276,7 +276,7 @@
       <h3 id="drawer-title">Edit Product</h3>
       <button class="btn-admin-ghost" id="drawer-close" aria-label="Close">&times;</button>
     </header>
-    <form class="drawer-body" id="product-form">
+    <form class="drawer-body" id="product-form" data-dirty-name="product">
       <input type="hidden" name="id" id="f-id" />
 
       <div class="form-field">
@@ -347,7 +347,7 @@
       <h3 id="review-drawer-title">Edit Review</h3>
       <button class="btn-admin-ghost" id="review-drawer-close" aria-label="Close">&times;</button>
     </header>
-    <form class="drawer-body" id="review-form">
+    <form class="drawer-body" id="review-form" data-dirty-name="review">
       <input type="hidden" id="r-id" />
 
       <div class="form-field">
@@ -395,7 +395,7 @@
       <h3 id="category-drawer-title">Edit Category</h3>
       <button class="btn-admin-ghost" id="category-drawer-close" aria-label="Close">&times;</button>
     </header>
-    <form class="drawer-body" id="category-form">
+    <form class="drawer-body" id="category-form" data-dirty-name="category">
       <input type="hidden" id="c-id" />
       <div class="form-field">
         <label class="form-label" for="c-name">Name</label>
@@ -428,7 +428,7 @@
       <h3 id="slot-drawer-title">Edit Image Slot</h3>
       <button class="btn-admin-ghost" id="slot-drawer-close" aria-label="Close">&times;</button>
     </header>
-    <form class="drawer-body" id="slot-form">
+    <form class="drawer-body" id="slot-form" data-dirty-name="slot">
       <input type="hidden" id="s-slot" />
       <div class="form-field">
         <span class="form-label">Slot</span>
@@ -471,7 +471,7 @@
       <h3>Change Password</h3>
       <button class="btn-admin-ghost" id="pwd-drawer-close" aria-label="Close">&times;</button>
     </header>
-    <form class="drawer-body" id="pwd-form">
+    <form class="drawer-body" id="pwd-form" data-dirty-name="pwd">
       <p style="color:var(--color-text-muted);font-size:.9rem;margin:0 0 var(--space-4);">
         Choose a new password (8+ characters). You'll stay signed in after the change.
       </p>

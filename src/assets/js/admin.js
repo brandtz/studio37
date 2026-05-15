@@ -49,14 +49,121 @@
   function setSession(token, user) {
     sessionToken = token;
     me = user || null;
-    if (token) sessionStorage.setItem(TOKEN_KEY, token);
+    if (token) {
+      sessionStorage.setItem(TOKEN_KEY, token);
+      markLoginNow();
+    }
   }
 
   function clearSession() {
     sessionToken = '';
     me = null;
     sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(LOGIN_AT_KEY);
+    sessionStorage.removeItem(ACTIVITY_AT_KEY);
   }
+
+  // ── session lifetime & cross-tab sync ──────────────────
+  // Hard expiry: 8h from login. Idle expiry: 30 min of inactivity.
+  // BroadcastChannel keeps all admin tabs in sync on logout.
+  const LOGIN_AT_KEY = 'studio37_login_at';
+  const ACTIVITY_AT_KEY = 'studio37_activity_at';
+  const HARD_EXPIRY_MS = 8 * 60 * 60 * 1000;
+  const IDLE_EXPIRY_MS = 30 * 60 * 1000;
+  const ACTIVITY_THROTTLE_MS = 30 * 1000;
+
+  let authChannel = null;
+  try { authChannel = new BroadcastChannel('studio37-admin-auth'); } catch { /* unsupported */ }
+
+  function markLoginNow() {
+    const now = String(Date.now());
+    sessionStorage.setItem(LOGIN_AT_KEY, now);
+    sessionStorage.setItem(ACTIVITY_AT_KEY, now);
+  }
+
+  function touchActivity() {
+    const now = Date.now();
+    const last = parseInt(sessionStorage.getItem(ACTIVITY_AT_KEY) || '0', 10);
+    if (now - last >= ACTIVITY_THROTTLE_MS) {
+      sessionStorage.setItem(ACTIVITY_AT_KEY, String(now));
+    }
+  }
+
+  function forceLogout(reason) {
+    try { authChannel?.postMessage({ type: 'logout', reason }); } catch { /* ignore */ }
+    clearSession();
+    try { fetch('/api/auth/logout', { method: 'POST', keepalive: true }); } catch { /* ignore */ }
+    const msg = reason === 'idle' ? '?reason=idle' : reason === 'expired' ? '?reason=expired' : '';
+    window.location.replace('/admin' + msg);
+  }
+
+  function checkSessionExpiry() {
+    if (!sessionToken) return;
+    const now = Date.now();
+    const loginAt = parseInt(sessionStorage.getItem(LOGIN_AT_KEY) || '0', 10);
+    const activityAt = parseInt(sessionStorage.getItem(ACTIVITY_AT_KEY) || '0', 10);
+    if (loginAt && now - loginAt > HARD_EXPIRY_MS) { forceLogout('expired'); return; }
+    if (activityAt && now - activityAt > IDLE_EXPIRY_MS) { forceLogout('idle'); return; }
+  }
+
+  ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach((ev) => {
+    window.addEventListener(ev, touchActivity, { passive: true });
+  });
+  setInterval(checkSessionExpiry, 30 * 1000);
+
+  if (authChannel) {
+    authChannel.addEventListener('message', (e) => {
+      if (e.data?.type === 'logout' && sessionToken) {
+        clearSession();
+        window.location.replace('/admin');
+      }
+    });
+  }
+
+  // ── Unsaved-changes guard (beforeunload) ───────────────
+  // Tracks dirtiness of any open drawer form. Browser shows a generic
+  // "Leave site?" prompt if the user reloads/closes the tab while dirty.
+  const dirtyDrawers = new Set();
+  function markDirty(name) { dirtyDrawers.add(name); }
+  function markClean(name) { dirtyDrawers.delete(name); }
+  function clearAllDirty() { dirtyDrawers.clear(); }
+
+  window.addEventListener('beforeunload', (e) => {
+    if (dirtyDrawers.size > 0) {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  });
+
+  // Wire 'input' events on each form to mark its drawer dirty.
+  // Forms must opt in via data-dirty-name attribute (set in HTML).
+  document.addEventListener('input', (e) => {
+    const form = e.target?.closest?.('form[data-dirty-name]');
+    if (form) markDirty(form.dataset.dirtyName);
+  }, true);
+
+  // ── Escape closes topmost open drawer ──────────────────
+  const DRAWER_CLOSERS = [
+    { id: 'drawer',          fn: () => closeProductDrawer?.() },
+    { id: 'review-drawer',   fn: () => closeReviewDrawer?.() },
+    { id: 'category-drawer', fn: () => closeCategoryDrawer?.() },
+    { id: 'slot-drawer',     fn: () => closeSlotDrawer?.() },
+    { id: 'pwd-drawer',      fn: () => closePwdDrawer?.() },
+  ];
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    // Topmost (last-opened) — iterate in reverse so a stacked drawer wins.
+    for (let i = DRAWER_CLOSERS.length - 1; i >= 0; i--) {
+      const d = DRAWER_CLOSERS[i];
+      const el = document.getElementById(d.id);
+      if (el && el.classList.contains('open')) {
+        e.preventDefault();
+        d.fn();
+        return;
+      }
+    }
+  });
 
   // ── slug / format helpers ──────────────────────────────
   function slugify(s) {
@@ -82,6 +189,9 @@
   // ── auth flow ──────────────────────────────────────────
   $('#logout').addEventListener('click', async (e) => {
     e.preventDefault();
+    if (dirtyDrawers.size > 0 && !confirm('You have unsaved changes. Sign out anyway?')) return;
+    clearAllDirty();
+    try { authChannel?.postMessage({ type: 'logout', reason: 'manual' }); } catch { /* ignore */ }
     try { await fetch('/api/auth/logout', { method: 'POST' }); } catch { /* ignore */ }
     clearSession();
     window.location.replace('/admin');
@@ -102,6 +212,7 @@
     $('#pwd-drawer').setAttribute('aria-hidden', 'true');
     $('#pwd-drawer').classList.remove('open');
     $('#pwd-drawer-overlay').classList.remove('open');
+    markClean('pwd');
   }
   $('#change-password').addEventListener('click', (e) => { e.preventDefault(); openPwdDrawer(); });
   $('#pwd-drawer-close').addEventListener('click', closePwdDrawer);
@@ -308,6 +419,7 @@
     drawer.setAttribute('aria-hidden', 'true');
     editing = null;
     pendingImages = [];
+    markClean('product');
   }
 
   $('#new-product-btn').addEventListener('click', () => openProductDrawer(null));
@@ -534,6 +646,7 @@
     reviewDrawerOverlay.classList.remove('open');
     reviewDrawer.setAttribute('aria-hidden', 'true');
     editingReview = null;
+    markClean('review');
   }
 
   $('#new-review-btn').addEventListener('click', () => openReviewDrawer(null));
@@ -900,6 +1013,7 @@
     categoryDrawerOverlay.classList.remove('open');
     categoryDrawer.setAttribute('aria-hidden', 'true');
     editingCategory = null;
+    markClean('category');
   }
   $('#new-category-btn').addEventListener('click', () => openCategoryDrawer(null));
   $('#category-drawer-close').addEventListener('click', closeCategoryDrawer);
@@ -999,6 +1113,7 @@
     slotDrawerOverlay.classList.remove('open');
     slotDrawer.setAttribute('aria-hidden', 'true');
     editingSlot = null;
+    markClean('slot');
   }
   $('#slot-drawer-close').addEventListener('click', closeSlotDrawer);
   $('#slot-drawer-cancel').addEventListener('click', closeSlotDrawer);

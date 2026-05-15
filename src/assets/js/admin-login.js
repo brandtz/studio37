@@ -12,7 +12,12 @@
   }
 
   function setSession(token) {
-    if (token) sessionStorage.setItem(TOKEN_KEY, token);
+    if (token) {
+      sessionStorage.setItem(TOKEN_KEY, token);
+      const now = String(Date.now());
+      sessionStorage.setItem('studio37_login_at', now);
+      sessionStorage.setItem('studio37_activity_at', now);
+    }
   }
 
   const $ = (s) => document.querySelector(s);
@@ -23,6 +28,24 @@
       if (el) el.hidden = p !== name;
     });
   }
+
+  // Surface session-expiry reason from query string (set by dashboard forceLogout).
+  (() => {
+    const params = new URLSearchParams(window.location.search);
+    const reason = params.get('reason');
+    if (!reason) return;
+    const msg = reason === 'idle'
+      ? 'Signed out due to inactivity. Please sign in again.'
+      : reason === 'expired'
+        ? 'Your session expired. Please sign in again.'
+        : '';
+    if (msg) {
+      const el = $('#login-error');
+      if (el) el.textContent = msg;
+    }
+    // Strip the query so a reload doesn't re-show it.
+    history.replaceState({}, '', '/admin');
+  })();
 
   // ── Already authenticated? Go straight to dashboard. ──
   if (sessionStorage.getItem(TOKEN_KEY)) {
