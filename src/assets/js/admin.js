@@ -1412,6 +1412,34 @@
     });
   }
 
+  // ── focus trap inside open drawers (Epic 8 a11y) ───────
+  // When Tab/Shift+Tab leaves the open drawer, loop back inside.
+  const FOCUSABLE_SEL = 'a[href], area[href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    // Find topmost open drawer.
+    const openDrawers = Array.from(document.querySelectorAll('.drawer.open'));
+    if (openDrawers.length === 0) return;
+    const drawer = openDrawers[openDrawers.length - 1];
+    const focusables = Array.from(drawer.querySelectorAll(FOCUSABLE_SEL)).filter((el) => !el.hidden && el.offsetParent !== null);
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement;
+    if (!drawer.contains(active)) {
+      e.preventDefault();
+      first.focus();
+      return;
+    }
+    if (e.shiftKey && active === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
+
   // ── boot ────────────────────────────────────────────────
   (async function boot() {
     if (!sessionToken) { window.location.replace('/admin'); return; }

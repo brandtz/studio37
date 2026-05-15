@@ -57,7 +57,7 @@
 
     root.innerHTML = `
       <div>
-        <div class="product-hero"><img id="pd-hero" src="${escape(hero)}" alt="${escape(p.name)}" /></div>
+        <div class="product-hero"><img id="pd-hero" src="${escape(hero)}" alt="${escape(p.name)}" onerror="this.onerror=null;this.src='/assets/images/logo.png';" /></div>
         ${thumbs}
       </div>
       <div>

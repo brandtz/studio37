@@ -70,7 +70,7 @@
     return `
       <article class="card-product" data-status="${p.status}">
         <a class="card-product-img" href="${href}">
-          <img src="${p.images?.[0] || '/assets/images/logo.png'}" alt="${p.name}" loading="lazy" />
+          <img src="${p.images?.[0] || '/assets/images/logo.png'}" alt="${p.name}" loading="lazy" onerror="this.onerror=null;this.src='/assets/images/logo.png';" />
         </a>
         <div class="card-product-body">
           <div class="card-product-category">${categoryLabel(p)}</div>
