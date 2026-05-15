@@ -1,0 +1,8 @@
+[
+  { "id": "small-goods", "name": "Small Goods", "sort_order": 10 },
+  { "id": "furniture", "name": "Furniture", "sort_order": 20 },
+  { "id": "cabinetry", "name": "Cabinetry", "sort_order": 30 },
+  { "id": "slab-work", "name": "Slab Work", "sort_order": 40 },
+  { "id": "saunas", "name": "Saunas", "sort_order": 50 },
+  { "id": "custom", "name": "Custom", "sort_order": 60 }
+]

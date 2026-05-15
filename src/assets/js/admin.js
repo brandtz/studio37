@@ -8,9 +8,13 @@
   let products = [];
   let reviews = [];
   let users = [];
+  let categories = [];
+  let siteMedia = [];
   let editing = null;
   let pendingImages = [];
   let editingReview = null;
+  let editingCategory = null;
+  let editingSlot = null;
   let mediaProductId = '';
 
   const $ = (s, r = document) => r.querySelector(s);
@@ -136,7 +140,7 @@
   function setSection(section) {
     if (section === 'users' && me?.role !== 'super') section = 'products';
     if (section === 'connect' && me?.role !== 'super') section = 'products';
-    const sectionMap = ['products', 'media', 'reviews', 'orders', 'leads', 'users', 'connect'];
+    const sectionMap = ['products', 'media', 'reviews', 'orders', 'leads', 'users', 'connect', 'categories', 'site-media'];
     sectionMap.forEach((s) => {
       const el = $(`#section-${s}`);
       if (el) el.hidden = s !== section;
@@ -146,11 +150,13 @@
     $('#section-title').textContent = ({
       products: 'Products', media: 'Media', reviews: 'Reviews',
       orders: 'Orders', leads: 'Leads', users: 'Users', connect: 'Payments',
+      categories: 'Product Categories', 'site-media': 'Site Media',
     })[section] || 'Admin';
 
     $('#new-product-btn').hidden = section !== 'products';
     $('#new-review-btn').hidden = section !== 'reviews';
     $('#new-user-btn').hidden = section !== 'users';
+    $('#new-category-btn').hidden = section !== 'categories';
 
     if (section === 'products') loadProducts();
     if (section === 'media')    loadProducts();
@@ -159,6 +165,8 @@
     if (section === 'leads')    loadLeads();
     if (section === 'users')    loadUsers();
     if (section === 'connect')  loadConnect();
+    if (section === 'categories') loadCategories();
+    if (section === 'site-media') loadSiteMedia();
   }
 
   // ── products list ──────────────────────────────────────
@@ -182,9 +190,9 @@
 
     tbody.innerHTML = filtered.map((p) => `
       <tr data-id="${p.id}">
-        <td><img class="admin-table-thumb" src="${p.images?.[0] || '/assets/images/logo.png'}" alt="" /></td>
+        <td><img class="admin-table-thumb admin-row-clickable" data-action="edit" src="${p.images?.[0] || '/assets/images/logo.png'}" alt="" /></td>
         <td>
-          <span class="admin-table-name">${p.name}</span>
+          <span class="admin-table-name admin-row-clickable" data-action="edit">${p.name}</span>
           ${p.subtitle ? `<span class="admin-table-sub">${p.subtitle}</span>` : ''}
         </td>
         <td><span class="admin-table-price">${fmtMoney(p.price)}</span></td>
@@ -198,9 +206,9 @@
       </tr>
     `).join('');
 
-    tbody.querySelectorAll('button[data-action="edit"]').forEach((b) => {
-      b.addEventListener('click', () => {
-        const id = b.closest('tr').dataset.id;
+    tbody.querySelectorAll('[data-action="edit"]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const id = el.closest('tr').dataset.id;
         openProductDrawer(products.find((p) => p.id === id));
       });
     });
@@ -280,7 +288,7 @@
     $('#f-id').value = product?.id || '';
     $('#f-name').value = product?.name || '';
     $('#f-subtitle').value = product?.subtitle || '';
-    $('#f-category').value = product?.category || 'small-goods';
+    $('#f-category').value = product?.category || (categories.find((c) => !c.archived)?.id ?? 'small-goods');
     $('#f-price').value = product?.price != null ? (product.price / 100).toFixed(2) : '';
     $('#f-description').value = product?.description || '';
     $('#f-shipping').checked = product?.shipping !== false;
@@ -786,6 +794,269 @@
     } catch (err) { toast('Invite failed: ' + (err.message || ''), true); }
   });
 
+  // ── categories ─────────────────────────────────────────
+  function slugify(s) {
+    return (s || '')
+      .toString()
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+  }
+
+  function populateCategoryDropdowns() {
+    const active = categories.filter((c) => !c.archived);
+    document.querySelectorAll('select[data-dynamic-categories="form"]').forEach((sel) => {
+      const current = sel.value;
+      sel.innerHTML = active.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
+      if (current && active.some((c) => c.id === current)) sel.value = current;
+    });
+    document.querySelectorAll('select[data-dynamic-categories="filter"]').forEach((sel) => {
+      const current = sel.value || 'all';
+      sel.innerHTML = `<option value="all">All categories</option>` +
+        active.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
+      sel.value = current && (current === 'all' || active.some((c) => c.id === current)) ? current : 'all';
+    });
+  }
+
+  async function loadCategories() {
+    try {
+      categories = await api('/api/admin/categories');
+      categories.sort((a, b) => (a.sort_order ?? 100) - (b.sort_order ?? 100));
+      renderCategories();
+      populateCategoryDropdowns();
+    } catch (err) {
+      console.error(err);
+      const tb = $('#categories-tbody');
+      if (tb) tb.innerHTML = `<tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Could not load categories.</td></tr>`;
+    }
+  }
+
+  function renderCategories() {
+    const tb = $('#categories-tbody');
+    if (!tb) return;
+    if (!categories.length) {
+      tb.innerHTML = `<tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">No categories yet.</td></tr>`;
+      return;
+    }
+    tb.innerHTML = categories.map((c) => `
+      <tr data-id="${c.id}">
+        <td><span class="admin-row-clickable" data-action="edit-cat">${c.name}</span></td>
+        <td><code style="font-size:.85em;">${c.slug || c.id}</code></td>
+        <td>${c.sort_order ?? 100}</td>
+        <td>${c.archived ? '<span class="badge badge-archived">Archived</span>' : '<span class="badge badge-active">Active</span>'}</td>
+        <td style="text-align:right;">
+          <button class="btn-admin-ghost" data-action="edit-cat">Edit</button>
+          <button class="btn-admin-ghost" data-action="${c.archived ? 'restore-cat' : 'archive-cat'}">${c.archived ? 'Restore' : 'Archive'}</button>
+        </td>
+      </tr>
+    `).join('');
+    tb.querySelectorAll('[data-action="edit-cat"]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const id = el.closest('tr').dataset.id;
+        openCategoryDrawer(categories.find((c) => c.id === id));
+      });
+    });
+    tb.querySelectorAll('[data-action="archive-cat"], [data-action="restore-cat"]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.closest('tr').dataset.id;
+        const cat = categories.find((c) => c.id === id);
+        if (!cat) return;
+        const archive = btn.dataset.action === 'archive-cat';
+        try {
+          if (archive) {
+            await api(`/api/admin/categories/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          } else {
+            await api(`/api/admin/categories/${encodeURIComponent(id)}`, {
+              method: 'PUT',
+              body: JSON.stringify({ ...cat, archived: false }),
+            });
+          }
+          toast(archive ? 'Category archived' : 'Category restored');
+          await loadCategories();
+        } catch (err) { toast('Action failed: ' + (err.message || ''), true); }
+      });
+    });
+  }
+
+  const categoryDrawer = $('#category-drawer');
+  const categoryDrawerOverlay = $('#category-drawer-overlay');
+
+  function openCategoryDrawer(cat) {
+    editingCategory = cat || null;
+    $('#category-drawer-title').textContent = cat ? 'Edit Category' : 'New Category';
+    $('#c-id').value = cat?.id || '';
+    $('#c-name').value = cat?.name || '';
+    $('#c-slug').value = cat?.slug || cat?.id || '';
+    $('#c-order').value = cat?.sort_order ?? 100;
+    $('#c-archived').checked = !!cat?.archived;
+    categoryDrawer.classList.add('open');
+    categoryDrawerOverlay.classList.add('open');
+    categoryDrawer.setAttribute('aria-hidden', 'false');
+  }
+  function closeCategoryDrawer() {
+    categoryDrawer.classList.remove('open');
+    categoryDrawerOverlay.classList.remove('open');
+    categoryDrawer.setAttribute('aria-hidden', 'true');
+    editingCategory = null;
+  }
+  $('#new-category-btn').addEventListener('click', () => openCategoryDrawer(null));
+  $('#category-drawer-close').addEventListener('click', closeCategoryDrawer);
+  $('#category-drawer-cancel').addEventListener('click', closeCategoryDrawer);
+  categoryDrawerOverlay.addEventListener('click', closeCategoryDrawer);
+
+  $('#category-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = $('#c-name').value.trim();
+    if (!name) { toast('Name is required', true); return; }
+    const slug = slugify($('#c-slug').value.trim() || name);
+    const id = $('#c-id').value || slug;
+    const payload = {
+      id,
+      slug,
+      name,
+      sort_order: Number($('#c-order').value) || 100,
+      archived: $('#c-archived').checked,
+    };
+    try {
+      if (editingCategory) {
+        await api(`/api/admin/categories/${encodeURIComponent(editingCategory.id)}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await api('/api/admin/categories', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      }
+      toast('Category saved');
+      closeCategoryDrawer();
+      await loadCategories();
+    } catch (err) {
+      toast('Save failed: ' + (err.message || ''), true);
+    }
+  });
+
+  // ── site media ─────────────────────────────────────────
+  async function loadSiteMedia() {
+    try {
+      siteMedia = await api('/api/admin/site-media');
+      renderSiteMedia();
+    } catch (err) {
+      console.error(err);
+      const grid = $('#site-media-grid');
+      if (grid) grid.innerHTML = `<div style="padding:var(--space-6);color:var(--color-text-muted);">Could not load site media.</div>`;
+    }
+  }
+
+  function renderSiteMedia() {
+    const grid = $('#site-media-grid');
+    if (!grid) return;
+    if (!siteMedia.length) {
+      grid.innerHTML = `<div style="padding:var(--space-6);color:var(--color-text-muted);">No image slots registered.</div>`;
+      return;
+    }
+    grid.innerHTML = siteMedia.map((s) => `
+      <div class="site-media-card" data-slot="${s.slot}">
+        <div class="thumb-wrap"><img src="${s.url}" alt="${(s.alt || '').replace(/"/g, '&quot;')}" loading="lazy" /></div>
+        <div class="meta">
+          <span class="meta-label">${s.label || s.slot}</span>
+          <span class="meta-slot">${s.page || ''} &middot; ${s.slot}</span>
+          <span class="meta-badge ${s.overridden ? 'overridden' : ''}">${s.overridden ? 'Custom' : 'Default'}</span>
+        </div>
+      </div>
+    `).join('');
+    grid.querySelectorAll('.site-media-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        const slot = card.dataset.slot;
+        openSlotDrawer(siteMedia.find((s) => s.slot === slot));
+      });
+    });
+  }
+
+  const slotDrawer = $('#slot-drawer');
+  const slotDrawerOverlay = $('#slot-drawer-overlay');
+
+  function openSlotDrawer(slot) {
+    editingSlot = slot || null;
+    if (!slot) return;
+    $('#slot-drawer-title').textContent = 'Edit Image Slot';
+    $('#s-slot').value = slot.slot;
+    $('#s-label').textContent = `${slot.label || slot.slot} — ${slot.page || ''}`;
+    $('#s-preview-img').src = slot.url || '';
+    $('#s-preview-img').alt = slot.alt || '';
+    $('#s-url').value = slot.overridden ? (slot.url || '') : '';
+    $('#s-alt').value = slot.alt || '';
+    $('#s-error').textContent = '';
+    slotDrawer.classList.add('open');
+    slotDrawerOverlay.classList.add('open');
+    slotDrawer.setAttribute('aria-hidden', 'false');
+  }
+  function closeSlotDrawer() {
+    slotDrawer.classList.remove('open');
+    slotDrawerOverlay.classList.remove('open');
+    slotDrawer.setAttribute('aria-hidden', 'true');
+    editingSlot = null;
+  }
+  $('#slot-drawer-close').addEventListener('click', closeSlotDrawer);
+  $('#slot-drawer-cancel').addEventListener('click', closeSlotDrawer);
+  slotDrawerOverlay.addEventListener('click', closeSlotDrawer);
+
+  $('#s-upload-zone').addEventListener('click', () => $('#s-upload-input').click());
+  $('#s-upload-input').addEventListener('change', async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    $('#s-error').textContent = 'Uploading…';
+    try {
+      const url = await uploadOne(f);
+      if (url) {
+        $('#s-url').value = url;
+        $('#s-preview-img').src = url;
+        $('#s-error').textContent = '';
+      } else {
+        $('#s-error').textContent = 'Upload failed';
+      }
+    } catch (err) {
+      $('#s-error').textContent = 'Upload failed: ' + (err.message || '');
+    } finally {
+      e.target.value = '';
+    }
+  });
+
+  $('#slot-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const slot = $('#s-slot').value;
+    const url = $('#s-url').value.trim();
+    const alt = $('#s-alt').value.trim();
+    if (!slot || !url) { $('#s-error').textContent = 'Image URL is required'; return; }
+    try {
+      await api(`/api/admin/site-media/${encodeURIComponent(slot)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ url, alt }),
+      });
+      toast('Image slot saved');
+      closeSlotDrawer();
+      await loadSiteMedia();
+    } catch (err) {
+      $('#s-error').textContent = 'Save failed: ' + (err.message || '');
+    }
+  });
+
+  $('#slot-reset').addEventListener('click', async () => {
+    if (!editingSlot) return;
+    if (!confirm('Revert this slot to the default image?')) return;
+    try {
+      await api(`/api/admin/site-media/${encodeURIComponent(editingSlot.slot)}`, { method: 'DELETE' });
+      toast('Slot reverted to default');
+      closeSlotDrawer();
+      await loadSiteMedia();
+    } catch (err) {
+      $('#s-error').textContent = 'Revert failed: ' + (err.message || '');
+    }
+  });
+
   // ── toast ──────────────────────────────────────────────
   const toastEl = $('#toast');
   function toast(msg, error = false) {
@@ -808,6 +1079,8 @@
         if (connectNav) connectNav.hidden = me.role !== 'super';
       }
       setSection('products');
+      // Preload categories so the product editor dropdown is populated
+      loadCategories().catch(() => {});
     } catch {
       clearSession();
       window.location.replace('/admin');

@@ -11,9 +11,17 @@ export default async (req) => {
   await ensureProductSeeded();
 
   const url = new URL(req.url);
-  // req.params.id is set by Functions v2 path routing; fall back to query string for
-  // any legacy redirect paths.
-  const id = req.params?.id || url.searchParams.get('id') || null;
+  // Resolve the product id from any of the supported places, in order:
+  //   1. Functions v2 path params (`/api/admin/products/:id`)
+  //   2. Query string `?id=...` (legacy redirect)
+  //   3. The pathname itself (the last segment after `products`)
+  // This is bulletproof against Netlify routing variations.
+  const pathSegs = url.pathname.split('/').filter(Boolean);
+  const tailSeg = pathSegs[pathSegs.length - 1] || '';
+  const idFromPath = (tailSeg && tailSeg !== 'products' && tailSeg !== 'admin-products')
+    ? decodeURIComponent(tailSeg)
+    : null;
+  const id = req.params?.id || url.searchParams.get('id') || idFromPath || null;
   const store = productStore();
 
   // ── GET (list all, including archived) ──

@@ -11,7 +11,12 @@ export default async (req) => {
   await ensureReviewSeeded();
 
   const url = new URL(req.url);
-  const id = req.params?.id || url.searchParams.get('id') || null;
+  const pathSegs = url.pathname.split('/').filter(Boolean);
+  const tailSeg = pathSegs[pathSegs.length - 1] || '';
+  const idFromPath = (tailSeg && tailSeg !== 'reviews' && tailSeg !== 'admin-reviews')
+    ? decodeURIComponent(tailSeg)
+    : null;
+  const id = req.params?.id || url.searchParams.get('id') || idFromPath || null;
   const store = reviewStore();
 
   if (req.method === 'GET') {

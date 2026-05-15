@@ -4,11 +4,14 @@ import { getStore } from '@netlify/blobs';
 import seedProducts from './products.seed.json' with { type: 'json' };
 import seedReviews from './reviews.seed.json' with { type: 'json' };
 import seedUsers from './users.seed.json' with { type: 'json' };
+import seedCategories from './categories.seed.json' with { type: 'json' };
 
 export const PRODUCT_STORE = 'products';
 export const LEAD_STORE = 'leads';
 export const REVIEW_STORE = 'reviews';
 export const USER_STORE = 'users';
+export const CATEGORY_STORE = 'categories';
+export const SITE_MEDIA_STORE = 'site_media';
 
 // Bump this whenever the seed data changes — triggers auto-migration on next cold start.
 const SEED_VERSION = 3;
@@ -17,6 +20,8 @@ const REVIEW_SEED_VERSION = 1;
 const REVIEW_SEED_VERSION_KEY = '_review_seed_version';
 const USER_SEED_VERSION = 2;
 const USER_SEED_VERSION_KEY = '_user_seed_version';
+const CATEGORY_SEED_VERSION = 1;
+const CATEGORY_SEED_VERSION_KEY = '_category_seed_version';
 
 export function productStore() {
   return getStore({ name: PRODUCT_STORE, consistency: 'strong' });
@@ -32,6 +37,14 @@ export function reviewStore() {
 
 export function userStore() {
   return getStore({ name: USER_STORE, consistency: 'strong' });
+}
+
+export function categoryStore() {
+  return getStore({ name: CATEGORY_STORE, consistency: 'strong' });
+}
+
+export function siteMediaStore() {
+  return getStore({ name: SITE_MEDIA_STORE, consistency: 'strong' });
 }
 
 export const json = (body, status = 200, extra = {}) =>
@@ -172,4 +185,37 @@ export function slugify(s) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
     .slice(0, 60);
+}
+
+export async function ensureCategorySeeded(force = false) {
+  const store = categoryStore();
+  const existingList = await store.list().catch(() => ({ blobs: [] }));
+  const existingKeys = new Set((existingList.blobs || []).map((b) => b.key));
+  const storedVersion = await store
+    .get(CATEGORY_SEED_VERSION_KEY, { type: 'json' })
+    .catch(() => null);
+
+  if (!force && storedVersion?.v === CATEGORY_SEED_VERSION) {
+    if (existingList.blobs?.filter((b) => b.key !== CATEGORY_SEED_VERSION_KEY).length) {
+      return { seeded: false, written: 0 };
+    }
+  }
+
+  const now = nowIso();
+  let written = 0;
+  for (const c of seedCategories) {
+    if (!force && existingKeys.has(c.id)) continue;
+    await store.setJSON(c.id, {
+      id: c.id,
+      name: c.name,
+      slug: c.id,
+      sort_order: c.sort_order ?? 100,
+      archived: false,
+      created_at: now,
+      updated_at: now,
+    });
+    written++;
+  }
+  await store.setJSON(CATEGORY_SEED_VERSION_KEY, { v: CATEGORY_SEED_VERSION });
+  return { seeded: true, written };
 }

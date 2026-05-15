@@ -40,6 +40,14 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16v12H5.2L2 19V4Z"/></svg>
           Leads
         </a></li>
+        <li><a href="#categories" data-section="categories">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7h7v7H3z"/><path d="M14 7h7v3h-7z"/><path d="M14 13h7v7h-7z"/><path d="M3 17h7v3H3z"/></svg>
+          Categories
+        </a></li>
+        <li><a href="#site-media" data-section="site-media">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16v16H4z"/><path d="m4 16 5-5 4 4 3-3 4 4"/><circle cx="9" cy="9" r="1.5"/></svg>
+          Site Media
+        </a></li>
         <li data-nav-users hidden><a href="#users" data-section="users">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Users
@@ -66,6 +74,7 @@
           <button class="btn-admin" id="new-product-btn">+ New Product</button>
           <button class="btn-admin" id="new-review-btn" hidden>+ New Review</button>
           <button class="btn-admin" id="new-user-btn" hidden>+ Invite User</button>
+          <button class="btn-admin" id="new-category-btn" hidden>+ New Category</button>
         </div>
       </header>
       <div class="admin-content">
@@ -80,14 +89,8 @@
               <option value="by_request">By Request</option>
               <option value="archived">Archived</option>
             </select>
-            <select id="category-filter">
+            <select id="category-filter" data-dynamic-categories="filter">
               <option value="all">All categories</option>
-              <option value="small-goods">Small Goods</option>
-              <option value="furniture">Furniture</option>
-              <option value="cabinetry">Cabinetry</option>
-              <option value="slab-work">Slab Work</option>
-              <option value="saunas">Saunas</option>
-              <option value="custom">Custom</option>
             </select>
           </div>
           <table class="admin-table">
@@ -168,6 +171,41 @@
               <tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Loading&hellip;</td></tr>
             </tbody>
           </table>
+        </section>
+
+        <!-- CATEGORIES SECTION (product management) -->
+        <section id="section-categories" hidden>
+          <p style="color:var(--color-text-muted);max-width:680px;margin-bottom:var(--space-5);">
+            Manage the product categories that appear in the shop filter, product editor, and site
+            navigation. Archiving a category hides it from new product creation but keeps existing
+            products untouched.
+          </p>
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th style="width:160px;">Slug</th>
+                <th style="width:100px;">Order</th>
+                <th style="width:120px;">Status</th>
+                <th style="width:220px;text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="categories-tbody">
+              <tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Loading&hellip;</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- SITE MEDIA SECTION -->
+        <section id="section-site-media" hidden>
+          <p style="color:var(--color-text-muted);max-width:680px;margin-bottom:var(--space-5);">
+            Replace the hero and gallery images used on public pages. Each slot is a named position
+            in the site (for example, the home page hero). Uploads here replace the image shown to
+            visitors immediately &mdash; the original file in the codebase stays as a fallback.
+          </p>
+          <div id="site-media-grid" class="site-media-grid">
+            <div style="padding:var(--space-6);color:var(--color-text-muted);">Loading&hellip;</div>
+          </div>
         </section>
 
         <!-- USERS SECTION (super only) -->
@@ -252,13 +290,7 @@
       <div class="form-row">
         <div class="form-field">
           <label class="form-label" for="f-category">Category</label>
-          <select class="form-select" id="f-category" name="category">
-            <option value="small-goods">Small Goods</option>
-            <option value="furniture">Furniture</option>
-            <option value="cabinetry">Cabinetry</option>
-            <option value="slab-work">Slab Work</option>
-            <option value="saunas">Saunas</option>
-            <option value="custom">Custom</option>
+          <select class="form-select" id="f-category" name="category" data-dynamic-categories="form">
           </select>
         </div>
         <div class="form-field">
@@ -353,6 +385,82 @@
     <footer class="drawer-foot">
       <button class="btn-admin-ghost" type="button" id="review-drawer-cancel">Cancel</button>
       <button class="btn-admin" type="submit" form="review-form">Save Review</button>
+    </footer>
+  </aside>
+
+  <!-- ── CATEGORY DRAWER ───────────────────────────────── -->
+  <div class="drawer-overlay" id="category-drawer-overlay"></div>
+  <aside class="drawer" id="category-drawer" aria-hidden="true">
+    <header class="drawer-head">
+      <h3 id="category-drawer-title">Edit Category</h3>
+      <button class="btn-admin-ghost" id="category-drawer-close" aria-label="Close">&times;</button>
+    </header>
+    <form class="drawer-body" id="category-form">
+      <input type="hidden" id="c-id" />
+      <div class="form-field">
+        <label class="form-label" for="c-name">Name</label>
+        <input class="form-input" id="c-name" required />
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="c-slug">Slug (URL-safe id)</label>
+        <input class="form-input" id="c-slug" placeholder="auto-generated from name if blank" />
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="c-order">Sort order</label>
+        <input class="form-input" id="c-order" type="number" min="0" value="100" />
+      </div>
+      <div class="form-field">
+        <label class="form-label">
+          <input type="checkbox" id="c-archived" /> Archived
+        </label>
+      </div>
+    </form>
+    <footer class="drawer-foot">
+      <button class="btn-admin-ghost" type="button" id="category-drawer-cancel">Cancel</button>
+      <button class="btn-admin" type="submit" form="category-form">Save Category</button>
+    </footer>
+  </aside>
+
+  <!-- ── SITE MEDIA SLOT DRAWER ────────────────────────── -->
+  <div class="drawer-overlay" id="slot-drawer-overlay"></div>
+  <aside class="drawer" id="slot-drawer" aria-hidden="true">
+    <header class="drawer-head">
+      <h3 id="slot-drawer-title">Edit Image Slot</h3>
+      <button class="btn-admin-ghost" id="slot-drawer-close" aria-label="Close">&times;</button>
+    </header>
+    <form class="drawer-body" id="slot-form">
+      <input type="hidden" id="s-slot" />
+      <div class="form-field">
+        <span class="form-label">Slot</span>
+        <p id="s-label" style="margin:0;color:var(--color-text-muted);"></p>
+      </div>
+      <div class="form-field">
+        <span class="form-label">Current image</span>
+        <div style="border:1px solid var(--color-admin-border);border-radius:var(--radius-sm);overflow:hidden;background:var(--color-admin-bg);max-width:320px;">
+          <img id="s-preview-img" src="" alt="" style="width:100%;height:auto;display:block;" />
+        </div>
+      </div>
+      <div class="form-field">
+        <span class="form-label">Replace with</span>
+        <label class="upload-zone" id="s-upload-zone">
+          <input type="file" id="s-upload-input" accept="image/*" style="display:none;" />
+          <span>Click to upload a replacement</span>
+        </label>
+        <p style="font-size:.85rem;color:var(--color-text-muted);margin:var(--space-2) 0 0;">
+          Or paste an existing URL:
+        </p>
+        <input class="form-input" id="s-url" type="url" placeholder="/assets/images/..." />
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="s-alt">Alt text</label>
+        <input class="form-input" id="s-alt" />
+      </div>
+      <p class="admin-login-error" id="s-error"></p>
+    </form>
+    <footer class="drawer-foot">
+      <button class="btn-admin-ghost" type="button" id="slot-reset" title="Revert to default">Revert</button>
+      <button class="btn-admin-ghost" type="button" id="slot-drawer-cancel">Cancel</button>
+      <button class="btn-admin" type="submit" form="slot-form">Save Image</button>
     </footer>
   </aside>
 

@@ -179,6 +179,69 @@ body.admin {
   color: var(--color-text-muted);
   font-style: italic;
 }
+.admin-row-clickable {
+  cursor: pointer;
+  transition: color 120ms var(--ease-base), opacity 120ms var(--ease-base);
+}
+.admin-row-clickable:hover { color: var(--color-accent); opacity: 0.9; }
+
+/* ── SITE MEDIA GRID ──────────────────────────────────────── */
+.site-media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+.site-media-card {
+  background: var(--color-admin-card);
+  border: 1px solid var(--color-admin-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: border-color 120ms var(--ease-base);
+}
+.site-media-card:hover { border-color: var(--color-accent); }
+.site-media-card .thumb-wrap {
+  aspect-ratio: 16 / 10;
+  background: var(--color-admin-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.site-media-card .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
+.site-media-card .meta {
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-admin-border);
+}
+.site-media-card .meta-label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+}
+.site-media-card .meta-slot {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: .75rem;
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}
+.site-media-card .meta-badge {
+  display: inline-block;
+  margin-top: var(--space-2);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  background: var(--color-admin-bg);
+  color: var(--color-text-muted);
+}
+.site-media-card .meta-badge.overridden {
+  background: var(--color-accent);
+  color: var(--color-bg-primary);
+}
 .admin-table-price {
   font-family: var(--font-mono);
   color: var(--color-accent);
@@ -283,30 +346,41 @@ body.admin {
   color: var(--color-accent);
 }
 
-/* ── DRAWER (Edit panel) ──────────────────────────────────── */
+/* ── DRAWER / MODAL (Edit panel) ──────────────────────────── */
 .drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0,0,0,0.6);
   z-index: 200;
   display: none;
 }
 .drawer-overlay.open { display: block; }
+
+/* Centered floating modal */
 .drawer {
   position: fixed;
-  top: 0; right: 0; bottom: 0;
-  width: 480px;
-  max-width: 100vw;
+  top: 50%;
+  left: 50%;
+  width: min(640px, calc(100vw - var(--space-6)));
+  max-height: calc(100vh - var(--space-6));
   background: var(--color-admin-card);
-  border-left: 1px solid var(--color-admin-border);
+  border: 1px solid var(--color-admin-border);
+  border-radius: var(--radius-md);
   z-index: 201;
-  transform: translateX(100%);
-  transition: transform 280ms ease;
+  transform: translate(-50%, -50%) scale(0.96);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 220ms var(--ease-base), opacity 220ms var(--ease-base);
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-modal);
+  overflow: hidden;
 }
-.drawer.open { transform: translateX(0); }
+.drawer.open {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
 .drawer-head {
   padding: var(--space-5) var(--space-6);
   border-bottom: 1px solid var(--color-admin-border);
@@ -397,7 +471,13 @@ body.admin {
 /* ── RESPONSIVE ───────────────────────────────────────────── */
 @media (max-width: 768px) {
   .admin-sidebar { display: none; }
-  .drawer { width: 100vw; }
+  .drawer {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
   .admin-content { padding: var(--space-4); }
   .admin-table-thumb { width: 40px; height: 40px; }
   .form-row { grid-template-columns: 1fr; }

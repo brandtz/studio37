@@ -1,0 +1,38 @@
+{
+  "home.hero": {
+    "label": "Home — hero image",
+    "page": "/",
+    "default": "/assets/images/portfolio_2.jpg",
+    "alt": "Studio 37 hero"
+  },
+  "saunas.hero": {
+    "label": "Saunas — hero background",
+    "page": "/saunas",
+    "default": "/assets/images/shop/coming-soon.svg",
+    "alt": "Cedar sauna kit hero"
+  },
+  "saunas.gallery.1": {
+    "label": "Saunas — gallery image 1",
+    "page": "/saunas",
+    "default": "/assets/images/shop/coming-soon.svg",
+    "alt": "Sauna interior"
+  },
+  "saunas.gallery.2": {
+    "label": "Saunas — gallery image 2",
+    "page": "/saunas",
+    "default": "/assets/images/shop/coming-soon.svg",
+    "alt": "Sauna detail"
+  },
+  "saunas.gallery.3": {
+    "label": "Saunas — gallery image 3",
+    "page": "/saunas",
+    "default": "/assets/images/shop/coming-soon.svg",
+    "alt": "Sauna exterior"
+  },
+  "saunas.gallery.4": {
+    "label": "Saunas — gallery image 4",
+    "page": "/saunas",
+    "default": "/assets/images/shop/coming-soon.svg",
+    "alt": "Sauna build"
+  }
+}
