@@ -279,6 +279,7 @@
     if (section === 'connect')  loadConnect();
     if (section === 'categories') loadCategories();
     if (section === 'site-media') loadSiteMedia();
+    if (section === 'settings') loadSettings();
   }
 
   // ── products list ──────────────────────────────────────
@@ -933,6 +934,61 @@
     }
   }
 
+  // ── site settings (Epic 6) ─────────────────────────────
+  async function loadSettings() {
+    const form = $('#settings-form');
+    const status = $('#settings-status');
+    if (!form) return;
+    status.textContent = 'Loading…';
+    try {
+      const s = await api('/api/admin/site-settings');
+      $('#s-business-name').value = s.business_name || '';
+      $('#s-business-tagline').value = s.business_tagline || '';
+      $('#s-business-email').value = s.business_email || '';
+      $('#s-business-phone').value = s.business_phone || '';
+      $('#s-business-phone-e164').value = s.business_phone_e164 || '';
+      $('#s-business-city').value = s.business_city || '';
+      $('#s-social-instagram').value = s.social_instagram_url || '';
+      $('#s-social-pinterest').value = s.social_pinterest_url || '';
+      $('#s-social-facebook').value = s.social_facebook_url || '';
+      $('#s-show-gc').checked = !!s.show_gc_tile;
+      status.textContent = '';
+      markClean('settings');
+    } catch (err) {
+      console.error(err);
+      status.textContent = 'Could not load settings.';
+    }
+  }
+
+  $('#settings-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const status = $('#settings-status');
+    const body = {
+      business_name: $('#s-business-name').value.trim(),
+      business_tagline: $('#s-business-tagline').value.trim(),
+      business_email: $('#s-business-email').value.trim(),
+      business_phone: $('#s-business-phone').value.trim(),
+      business_phone_e164: $('#s-business-phone-e164').value.trim(),
+      business_city: $('#s-business-city').value.trim(),
+      social_instagram_url: $('#s-social-instagram').value.trim(),
+      social_pinterest_url: $('#s-social-pinterest').value.trim(),
+      social_facebook_url: $('#s-social-facebook').value.trim(),
+      show_gc_tile: $('#s-show-gc').checked,
+    };
+    status.textContent = 'Saving…';
+    try {
+      await api('/api/admin/site-settings', { method: 'PUT', body: JSON.stringify(body) });
+      status.textContent = 'Saved.';
+      markClean('settings');
+      toast('Site settings saved.');
+      setTimeout(() => { if (status.textContent === 'Saved.') status.textContent = ''; }, 2500);
+    } catch (err) {
+      console.error(err);
+      status.textContent = 'Save failed.';
+      toast('Save failed.', true);
+    }
+  });
+
   // ── users ──────────────────────────────────────────────
   function escapeHtml(s) {
     return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1316,6 +1372,8 @@
         if (usersNav) usersNav.hidden = me.role !== 'super';
         const connectNav = document.querySelector('[data-nav-connect]');
         if (connectNav) connectNav.hidden = me.role !== 'super';
+        const settingsNav = document.querySelector('[data-nav-settings]');
+        if (settingsNav) settingsNav.hidden = !(me.role === 'super' || me.role === 'admin');
       }
       setSection('products');
       // Preload categories so the product editor dropdown is populated

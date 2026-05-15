@@ -118,6 +118,71 @@
     // Year
     const yearEl = $('#footer-year');
     if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+    // Epic 6: Hydrate footer with site settings from /api/public-config.
+    hydrateFooterFromConfig();
+  }
+
+  async function hydrateFooterFromConfig() {
+    try {
+      const r = await fetch('/api/public-config');
+      if (!r.ok) return;
+      const cfg = await r.json();
+      const s = cfg && cfg.site;
+      if (!s) return;
+
+      const footer = $('footer.footer');
+      if (!footer) return;
+
+      // Tagline
+      const taglineEl = footer.querySelector('.footer-brand p');
+      if (taglineEl && s.business_tagline) taglineEl.textContent = s.business_tagline;
+
+      // Social icons
+      const social = footer.querySelector('.footer-social');
+      if (social) {
+        const links = social.querySelectorAll('a');
+        // Instagram = first link
+        if (links[0]) {
+          if (s.social_instagram_url) {
+            links[0].href = s.social_instagram_url;
+            links[0].style.display = '';
+          } else {
+            links[0].style.display = 'none';
+          }
+        }
+        // Pinterest = second link
+        if (links[1]) {
+          if (s.social_pinterest_url) {
+            links[1].href = s.social_pinterest_url;
+            links[1].style.display = '';
+          } else {
+            links[1].style.display = 'none';
+          }
+        }
+      }
+
+      // Connect column
+      const connectList = footer.querySelectorAll('.footer-inner > div')[2]?.querySelector('ul');
+      if (connectList) {
+        const items = connectList.querySelectorAll('li');
+        // email
+        if (items[0] && s.business_email) {
+          items[0].innerHTML = `<a href="mailto:${s.business_email}">${s.business_email}</a>`;
+        }
+        if (items[1] && s.business_city) items[1].textContent = s.business_city;
+        if (items[2] && s.business_phone) {
+          const tel = s.business_phone_e164 || s.business_phone.replace(/[^\d+]/g, '');
+          items[2].innerHTML = `<a href="tel:${tel}">${s.business_phone}</a>`;
+        }
+      }
+
+      // Copyright business name
+      const bottom = footer.querySelector('.footer-bottom span');
+      if (bottom && s.business_name) {
+        bottom.innerHTML = `&copy; <span id="footer-year">${new Date().getFullYear()}</span> ${s.business_name}`;
+      }
+    } catch { /* fail silent — keep defaults */ }
   }
 
   function wireNav() {

@@ -56,6 +56,10 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="14" x2="10" y2="14"/></svg>
           Payments
         </a></li>
+        <li data-nav-settings hidden><a href="#settings" data-section="settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Settings
+        </a></li>
       </ul>
       <div class="admin-sidebar-foot">
         <span style="display:block;font-size:.75rem;color:var(--color-text-muted);margin-bottom:var(--space-2);" id="who-am-i"></span>
@@ -264,6 +268,72 @@
               <tr><td colspan="6" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Loading&hellip;</td></tr>
             </tbody>
           </table>
+        </section>
+
+        <!-- ── SETTINGS (Epic 6) ─────────────────────────── -->
+        <section id="section-settings" hidden>
+          <div style="max-width:720px;">
+            <p style="color:var(--color-text-muted);margin-bottom:var(--space-5);">
+              Business contact info and social links. Public pages read these via <code>/api/public-config</code>.
+            </p>
+            <form id="settings-form" data-dirty-name="settings">
+              <h3 style="margin:0 0 var(--space-3);">Business</h3>
+              <div class="form-field">
+                <label class="form-label" for="s-business-name">Business name</label>
+                <input class="form-input" id="s-business-name" name="business_name" />
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="s-business-tagline">Tagline</label>
+                <input class="form-input" id="s-business-tagline" name="business_tagline" maxlength="240" />
+              </div>
+              <div class="form-row">
+                <div class="form-field">
+                  <label class="form-label" for="s-business-email">Email</label>
+                  <input class="form-input" id="s-business-email" name="business_email" type="email" />
+                </div>
+                <div class="form-field">
+                  <label class="form-label" for="s-business-phone">Phone (display)</label>
+                  <input class="form-input" id="s-business-phone" name="business_phone" placeholder="(541) 514-7720" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-field">
+                  <label class="form-label" for="s-business-phone-e164">Phone (E.164 for tel: link)</label>
+                  <input class="form-input" id="s-business-phone-e164" name="business_phone_e164" placeholder="+15415147720" />
+                </div>
+                <div class="form-field">
+                  <label class="form-label" for="s-business-city">City / region</label>
+                  <input class="form-input" id="s-business-city" name="business_city" />
+                </div>
+              </div>
+
+              <h3 style="margin:var(--space-6) 0 var(--space-3);">Social</h3>
+              <div class="form-field">
+                <label class="form-label" for="s-social-instagram">Instagram URL</label>
+                <input class="form-input" id="s-social-instagram" name="social_instagram_url" type="url" />
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="s-social-pinterest">Pinterest URL</label>
+                <input class="form-input" id="s-social-pinterest" name="social_pinterest_url" type="url" placeholder="leave blank to hide" />
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="s-social-facebook">Facebook URL</label>
+                <input class="form-input" id="s-social-facebook" name="social_facebook_url" type="url" placeholder="leave blank to hide" />
+              </div>
+
+              <h3 style="margin:var(--space-6) 0 var(--space-3);">Visibility</h3>
+              <div class="form-field">
+                <label class="form-label">
+                  <input type="checkbox" id="s-show-gc" name="show_gc_tile" /> Show "General Contracting" tile on /services
+                </label>
+              </div>
+
+              <div style="margin-top:var(--space-6);display:flex;gap:var(--space-3);align-items:center;">
+                <button type="submit" class="btn-admin-primary">Save settings</button>
+                <span id="settings-status" style="color:var(--color-text-muted);font-size:.875rem;"></span>
+              </div>
+            </form>
+          </div>
         </section>
       </div>
     </main>

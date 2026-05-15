@@ -36,5 +36,7 @@
 /api/admin/users/:email/:action  /.netlify/functions/admin-users?email=:email&action=:action  200
 /api/admin/users/:email   /.netlify/functions/admin-users?email=:email  200
 
+/api/admin/site-settings  /.netlify/functions/admin-site-settings  200
+
 # 404 fallback
 /*                         /404.html                                 404

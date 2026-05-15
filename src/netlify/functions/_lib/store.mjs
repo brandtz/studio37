@@ -13,6 +13,7 @@ export const USER_STORE = 'users';
 export const CATEGORY_STORE = 'categories';
 export const SITE_MEDIA_STORE = 'site_media';
 export const RATE_LIMIT_STORE = 'rate_limits';
+export const SITE_SETTINGS_STORE = 'site_settings';
 
 // Bump this whenever the seed data changes — triggers auto-migration on next cold start.
 const SEED_VERSION = 3;
@@ -50,6 +51,41 @@ export function siteMediaStore() {
 
 export function rateLimitStore() {
   return getStore({ name: RATE_LIMIT_STORE, consistency: 'strong' });
+}
+
+export function siteSettingsStore() {
+  return getStore({ name: SITE_SETTINGS_STORE, consistency: 'strong' });
+}
+
+// Default values for site settings (Epic 6). Used when no record exists yet.
+export const SITE_SETTINGS_DEFAULTS = Object.freeze({
+  business_name: 'Studio 37 Custom Designs',
+  business_tagline: 'Custom woodworking, cabinetry, and design — handcrafted in Springfield, Oregon.',
+  business_email: 'Drew@studio37customdesigns.com',
+  business_phone: '(541) 514-7720',
+  business_phone_e164: '+15415147720',
+  business_city: 'Springfield, Oregon',
+  social_instagram_url: 'https://www.instagram.com/studio37_customwoodworking',
+  social_pinterest_url: '',
+  social_facebook_url: '',
+  show_gc_tile: true,
+});
+
+const SITE_SETTINGS_KEY = 'current';
+
+export async function getSiteSettings() {
+  const store = siteSettingsStore();
+  let saved = null;
+  try { saved = await store.get(SITE_SETTINGS_KEY, { type: 'json' }); } catch { saved = null; }
+  return { ...SITE_SETTINGS_DEFAULTS, ...(saved || {}) };
+}
+
+export async function saveSiteSettings(patch) {
+  const store = siteSettingsStore();
+  const current = await getSiteSettings();
+  const next = { ...current, ...patch, updated_at: new Date().toISOString() };
+  await store.setJSON(SITE_SETTINGS_KEY, next);
+  return next;
 }
 
 export const json = (body, status = 200, extra = {}) =>
