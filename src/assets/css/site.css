@@ -1122,6 +1122,18 @@
 .cart-checkout { width: 100%; }
 .cart-checkout:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* Cart line warning state (Epic 3 — revalidation) */
+.cart-line.has-warning { background: #fff7ed; border-left: 3px solid #d97706; padding-left: 8px; }
+.cart-line-warning {
+  margin: 6px 0 0;
+  font-size: 0.8125rem;
+  color: #b54a00;
+}
+.cart-line-warning a, .cart-line-warning .link-btn {
+  color: #7c2d12; text-decoration: underline; background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
+}
+.cart-line-price.was-changed { text-decoration: line-through; color: #888; }
+
 /* Checkout return banners */
 .checkout-banner {
   position: fixed;
