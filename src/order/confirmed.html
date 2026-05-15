@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en" data-page="order-confirmed">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Order Confirmed — Studio 37</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#1a1714" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/icon-32.png" />
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/site.css" />
+  <script defer src="/assets/js/site.js"></script>
+  <script defer src="/assets/js/cart.js"></script>
+</head>
+<body class="grain">
+  <header class="nav"></header>
+  <nav class="nav-mobile-overlay" aria-label="Mobile navigation"></nav>
+
+  <section class="hero hero-short">
+    <div class="hero-gradient"></div>
+    <div class="hero-content">
+      <p class="hero-eyebrow">Studio 37</p>
+      <h1 class="hero-title">Thank You</h1>
+      <p class="hero-sub">Your order is in.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container" style="max-width:720px;">
+      <div class="card" style="padding:var(--space-7);">
+        <h2 style="margin-top:0;">We&rsquo;ve received your order</h2>
+        <p>
+          A confirmation email from Stripe is on its way with your receipt. Drew has been
+          notified and will reach out shortly with next steps and an estimated timeline.
+        </p>
+        <p id="order-ref" style="color:var(--color-text-muted);font-size:.9rem;"></p>
+        <div style="margin-top:var(--space-6);display:flex;gap:var(--space-3);flex-wrap:wrap;">
+          <a class="btn-primary" href="/shop">Keep shopping</a>
+          <a class="btn-ghost" href="/contact">Questions? Contact Drew</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer"></footer>
+
+  <script>
+    (function () {
+      // Clear the cart now that payment succeeded.
+      try { window.Studio37Cart?.clear?.(); } catch { /* ignore */ }
+      // Display order reference (short form of Stripe session id).
+      var sid = new URLSearchParams(location.search).get('session_id');
+      if (sid) {
+        var ref = sid.slice(-12);
+        var el = document.getElementById('order-ref');
+        if (el) el.textContent = 'Order reference: ' + ref;
+      }
+    })();
+  </script>
+</body>
+</html>

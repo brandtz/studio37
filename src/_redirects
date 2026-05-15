@@ -12,6 +12,7 @@
 
 /api/stripe/checkout-session  /.netlify/functions/stripe-checkout-session  200
 /api/stripe/webhook           /.netlify/functions/stripe-webhook           200
+/api/admin/orders/*           /.netlify/functions/admin-orders?id=:splat   200
 /api/admin/orders             /.netlify/functions/admin-orders             200
 /api/admin/stripe-connect/:action  /.netlify/functions/admin-stripe-connect?action=:action  200
 /api/admin/stripe-connect     /.netlify/functions/admin-stripe-connect     200
@@ -24,6 +25,9 @@
 /api/auth/logout          /.netlify/functions/auth-logout          200
 /api/auth/me              /.netlify/functions/auth-me              200
 /api/auth/request-access  /.netlify/functions/auth-request-access  200
+
+# Pretty path for the post-checkout confirmation page.
+/order/confirmed          /order/confirmed.html                    200
 
 /api/admin/users          /.netlify/functions/admin-users          200
 /api/admin/users/:email/:action  /.netlify/functions/admin-users?email=:email&action=:action  200

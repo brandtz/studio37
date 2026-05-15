@@ -28,7 +28,7 @@ export default async (req) => {
 
   const url = new URL(req.url);
   const baseUrl = process.env.SITE_URL || `${url.protocol}//${url.host}`;
-  const successUrl = (typeof body?.successUrl === 'string' && body.successUrl) || `${baseUrl}/shop?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
+  const successUrl = (typeof body?.successUrl === 'string' && body.successUrl) || `${baseUrl}/order/confirmed?session_id={CHECKOUT_SESSION_ID}`;
   const cancelUrl  = (typeof body?.cancelUrl  === 'string' && body.cancelUrl)  || `${baseUrl}/shop?checkout=cancelled`;
 
   const productsStore = productStore();

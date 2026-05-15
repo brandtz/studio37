@@ -376,6 +376,29 @@ body.admin {
   box-shadow: var(--shadow-modal);
   overflow: hidden;
 }
+.drawer-wide { width: min(820px, calc(100vw - var(--space-6))); }
+
+/* Lifecycle stage badge (Epic 4) */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: .7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  background: var(--color-admin-bg-2, #2a2a2a);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-admin-border);
+}
+.badge-new            { background: #1e3a5f; color: #cfe6ff; border-color: #2d5687; }
+.badge-in_production  { background: #4a3a0a; color: #ffe9a8; border-color: #7a611a; }
+.badge-ready_to_ship  { background: #1f4a3a; color: #b8f1d8; border-color: #2f7559; }
+.badge-shipped        { background: #2c3e6a; color: #c8d6ff; border-color: #4a5ea0; }
+.badge-delivered      { background: #1a3d2e; color: #b9efd0; border-color: #2a6048; }
+.badge-complete       { background: #1c4327; color: #b4f0c5; border-color: #2e6e3f; }
+.badge-cancelled      { background: #4a1c1c; color: #ffc6c6; border-color: #743030; }
+.badge-refunded       { background: #3d2a4a; color: #e4caff; border-color: #634575; }
 .drawer.open {
   transform: translate(-50%, -50%) scale(1);
   opacity: 1;

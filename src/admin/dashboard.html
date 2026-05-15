@@ -150,9 +150,9 @@
                 <th style="width:160px;">When</th>
                 <th>Customer</th>
                 <th>Items</th>
-                <th style="width:120px;">Total</th>
-                <th style="width:120px;">Status</th>
-                <th style="width:120px;text-align:right;">Stripe</th>
+                <th style="width:110px;">Total</th>
+                <th style="width:140px;">Stage</th>
+                <th style="width:80px;text-align:right;">Stripe</th>
               </tr>
             </thead>
             <tbody id="orders-tbody">
@@ -461,6 +461,58 @@
       <button class="btn-admin-ghost" type="button" id="slot-reset" title="Revert to default">Revert</button>
       <button class="btn-admin-ghost" type="button" id="slot-drawer-cancel">Cancel</button>
       <button class="btn-admin" type="submit" form="slot-form">Save Image</button>
+    </footer>
+  </aside>
+
+  <!-- ── ORDER DETAIL DRAWER (Epic 4) ──────────────────── -->
+  <div class="drawer-overlay" id="order-drawer-overlay"></div>
+  <aside class="drawer drawer-wide" id="order-drawer" aria-hidden="true">
+    <header class="drawer-head">
+      <h3 id="order-drawer-title">Order Detail</h3>
+      <button class="btn-admin-ghost" id="order-drawer-close" aria-label="Close">&times;</button>
+    </header>
+    <form class="drawer-body" id="order-form" data-dirty-name="order">
+      <div id="order-summary" style="margin-bottom:var(--space-5);"></div>
+
+      <div class="form-field">
+        <label class="form-label" for="o-lifecycle">Lifecycle stage</label>
+        <select class="form-input" id="o-lifecycle">
+          <option value="new">New</option>
+          <option value="in_production">In production</option>
+          <option value="ready_to_ship">Ready to ship</option>
+          <option value="shipped">Shipped</option>
+          <option value="delivered">Delivered</option>
+          <option value="complete">Complete</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="refunded">Refunded</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label" for="o-tracking-carrier">Carrier</label>
+          <input class="form-input" id="o-tracking-carrier" type="text" maxlength="40" placeholder="USPS / UPS / FedEx" />
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="o-tracking-number">Tracking number</label>
+          <input class="form-input" id="o-tracking-number" type="text" maxlength="80" />
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="o-notes">Internal notes</label>
+        <textarea class="form-textarea" id="o-notes" rows="5" maxlength="5000"
+          placeholder="Drew-only notes — not shown to customer."></textarea>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">Status history</label>
+        <div id="o-history" style="font-size:.85rem;color:var(--color-text-muted);"></div>
+      </div>
+    </form>
+    <footer class="drawer-foot">
+      <button class="btn-admin-ghost" type="button" id="order-drawer-cancel">Cancel</button>
+      <button class="btn-admin" type="submit" form="order-form">Save Order</button>
     </footer>
   </aside>
 

@@ -101,6 +101,7 @@ async function onCheckoutComplete(session, connectedAccount) {
     console.warn('[stripe-webhook] could not fetch line items', err?.message);
   }
 
+  const nowIso = new Date().toISOString();
   const order = {
     id: session.id,
     tenant_id: tenantId,
@@ -123,6 +124,13 @@ async function onCheckoutComplete(session, connectedAccount) {
       amount_total: li.amount_total,
       product_id: li.price?.product_metadata?.product_id || li.price?.metadata?.product_id || null,
     })),
+    // Lifecycle (Epic 4): admin-controlled stages independent of Stripe payment_status.
+    lifecycle: 'new',
+    lifecycle_at: nowIso,
+    tracking_number: null,
+    tracking_carrier: null,
+    internal_notes: '',
+    status_history: [{ stage: 'new', at: nowIso, by: 'system' }],
     sms_sent: false,
     sms_sent_at: null,
   };

@@ -149,6 +149,7 @@
     { id: 'review-drawer',   fn: () => closeReviewDrawer?.() },
     { id: 'category-drawer', fn: () => closeCategoryDrawer?.() },
     { id: 'slot-drawer',     fn: () => closeSlotDrawer?.() },
+    { id: 'order-drawer',    fn: () => closeOrderDrawer?.() },
     { id: 'pwd-drawer',      fn: () => closePwdDrawer?.() },
   ];
   document.addEventListener('keydown', (e) => {
@@ -704,44 +705,159 @@
   }
 
   // ── orders ─────────────────────────────────────────────
+  const LIFECYCLE_LABEL = {
+    new: 'New',
+    in_production: 'In production',
+    ready_to_ship: 'Ready to ship',
+    shipped: 'Shipped',
+    delivered: 'Delivered',
+    complete: 'Complete',
+    cancelled: 'Cancelled',
+    refunded: 'Refunded',
+  };
+
+  let allOrders = [];
+  let editingOrder = null;
+
   async function loadOrders() {
     const tbody = $('#orders-tbody');
     if (!tbody) return;
     try {
       const orders = await api('/api/admin/orders');
-      if (!Array.isArray(orders) || !orders.length) {
+      allOrders = Array.isArray(orders) ? orders : [];
+      if (!allOrders.length) {
         tbody.innerHTML = `<tr><td colspan="6" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">No orders yet.</td></tr>`;
         return;
       }
-      tbody.innerHTML = orders.map((o) => {
+      tbody.innerHTML = allOrders.map((o) => {
         const when = o.created_at ? new Date(o.created_at).toLocaleString() : '—';
         const customer = o.customer_email
-          ? `<a href="mailto:${escapeHtml(o.customer_email)}" style="color:var(--color-accent);">${escapeHtml(o.customer_email)}</a>`
+          ? escapeHtml(o.customer_email)
           : (o.customer_name ? escapeHtml(o.customer_name) : '—');
         const items = Array.isArray(o.items) && o.items.length
-          ? o.items.map((i) => `${escapeHtml(i.name || i.id)} ×${i.quantity || 1}`).join('<br/>')
+          ? o.items.map((i) => `${escapeHtml(i.description || i.name || i.product_id || '')} ×${i.quantity || 1}`).join('<br/>')
           : '—';
         const total = typeof o.amount_total === 'number' ? '$' + (o.amount_total / 100).toFixed(2) : '—';
-        const status = escapeHtml(o.status || 'paid');
-        const stripeLink = o.checkout_session_id
-          ? `<a href="https://dashboard.stripe.com/payments/${escapeHtml(o.payment_intent_id || '')}" target="_blank" rel="noopener" style="color:var(--color-accent);">Open &rarr;</a>`
+        const stage = LIFECYCLE_LABEL[o.lifecycle] || (o.lifecycle ? escapeHtml(o.lifecycle) : 'New');
+        const stripeLink = o.payment_intent
+          ? `<a href="https://dashboard.stripe.com/payments/${escapeHtml(o.payment_intent)}" target="_blank" rel="noopener" style="color:var(--color-accent);" onclick="event.stopPropagation()">Open &rarr;</a>`
           : '—';
         return `
-          <tr>
+          <tr data-order-id="${escapeHtml(o.id)}" style="cursor:pointer;">
             <td>${when}</td>
             <td>${customer}</td>
             <td>${items}</td>
             <td>${total}</td>
-            <td>${status}</td>
+            <td><span class="badge badge-${escapeHtml(o.lifecycle || 'new')}">${stage}</span></td>
             <td style="text-align:right;">${stripeLink}</td>
           </tr>
         `;
       }).join('');
+      tbody.querySelectorAll('tr[data-order-id]').forEach((row) => {
+        row.addEventListener('click', () => {
+          const id = row.dataset.orderId;
+          const order = allOrders.find((x) => x.id === id);
+          if (order) openOrderDrawer(order);
+        });
+      });
     } catch (err) {
       console.error(err);
       tbody.innerHTML = `<tr><td colspan="6" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Could not load orders.</td></tr>`;
     }
   }
+
+  // ── order detail drawer ───────────────────────────────
+  const orderDrawer = $('#order-drawer');
+  const orderDrawerOverlay = $('#order-drawer-overlay');
+
+  function openOrderDrawer(order) {
+    editingOrder = order;
+    $('#order-drawer-title').textContent = 'Order — ' + order.id.slice(-12);
+
+    const lines = (order.items || []).map((i) =>
+      `<li>${escapeHtml(i.description || i.name || i.product_id || '')} ×${i.quantity || 1} — $${((i.amount_total || 0) / 100).toFixed(2)}</li>`
+    ).join('');
+    const total = typeof order.amount_total === 'number' ? '$' + (order.amount_total / 100).toFixed(2) : '—';
+    const addr = order.shipping_address
+      ? [order.shipping_name, order.shipping_address.line1, order.shipping_address.line2,
+         `${order.shipping_address.city || ''}${order.shipping_address.state ? ', ' + order.shipping_address.state : ''} ${order.shipping_address.postal_code || ''}`,
+         order.shipping_address.country]
+          .filter(Boolean).map(escapeHtml).join('<br/>')
+      : '<em>No shipping address</em>';
+
+    $('#order-summary').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5);font-size:.9rem;">
+        <div>
+          <div style="color:var(--color-text-muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;">Customer</div>
+          <div><strong>${escapeHtml(order.customer_name || '—')}</strong></div>
+          <div>${order.customer_email ? `<a href="mailto:${escapeHtml(order.customer_email)}" style="color:var(--color-accent);">${escapeHtml(order.customer_email)}</a>` : '—'}</div>
+          <div>${escapeHtml(order.customer_phone || '')}</div>
+        </div>
+        <div>
+          <div style="color:var(--color-text-muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;">Ship to</div>
+          <div>${addr}</div>
+        </div>
+      </div>
+      <div style="margin-top:var(--space-4);">
+        <div style="color:var(--color-text-muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;">Items</div>
+        <ul style="margin:6px 0 0;padding-left:1.25rem;">${lines || '<li>—</li>'}</ul>
+        <div style="margin-top:var(--space-3);font-weight:600;">Total: ${total}</div>
+        <div style="color:var(--color-text-muted);font-size:.75rem;margin-top:var(--space-2);">Stripe session: <code>${escapeHtml(order.id)}</code></div>
+      </div>
+    `;
+
+    $('#o-lifecycle').value = order.lifecycle || 'new';
+    $('#o-tracking-carrier').value = order.tracking_carrier || '';
+    $('#o-tracking-number').value = order.tracking_number || '';
+    $('#o-notes').value = order.internal_notes || '';
+
+    const hist = (order.status_history || [])
+      .map((h) => `<div>${escapeHtml(LIFECYCLE_LABEL[h.stage] || h.stage)} — ${h.at ? new Date(h.at).toLocaleString() : ''} <span style="opacity:.7;">by ${escapeHtml(h.by || 'system')}</span></div>`)
+      .reverse()
+      .join('');
+    $('#o-history').innerHTML = hist || '<em>No transitions yet.</em>';
+
+    orderDrawer.classList.add('open');
+    orderDrawerOverlay.classList.add('open');
+    orderDrawer.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeOrderDrawer() {
+    orderDrawer.classList.remove('open');
+    orderDrawerOverlay.classList.remove('open');
+    orderDrawer.setAttribute('aria-hidden', 'true');
+    editingOrder = null;
+    markClean('order');
+  }
+
+  $('#order-drawer-close')?.addEventListener('click', closeOrderDrawer);
+  $('#order-drawer-cancel')?.addEventListener('click', closeOrderDrawer);
+  orderDrawerOverlay?.addEventListener('click', closeOrderDrawer);
+
+  $('#order-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!editingOrder) return;
+    const payload = {
+      lifecycle: $('#o-lifecycle').value,
+      tracking_carrier: $('#o-tracking-carrier').value.trim(),
+      tracking_number: $('#o-tracking-number').value.trim(),
+      internal_notes: $('#o-notes').value,
+    };
+    try {
+      const updated = await api(`/api/admin/orders/${encodeURIComponent(editingOrder.id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      // Update in-memory cache and refresh UI.
+      const idx = allOrders.findIndex((x) => x.id === updated.id);
+      if (idx >= 0) allOrders[idx] = updated;
+      toast('Order updated.');
+      closeOrderDrawer();
+      await loadOrders();
+    } catch (err) {
+      toast('Save failed: ' + (err.message || ''), true);
+    }
+  });
 
   // ── stripe connect ─────────────────────────────────────
   async function loadConnect() {
