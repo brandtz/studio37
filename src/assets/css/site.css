@@ -1156,3 +1156,42 @@
 .checkout-banner.show { opacity: 1; transform: translate(-50%, 0); }
 .checkout-banner.success { border-color: var(--color-accent, #c79a4a); }
 .checkout-banner.cancelled { border-color: var(--color-text-muted, #666); }
+
+/* -- Product detail page (Epic 5) -------------------- */
+.product-hero {
+  width: 100%;
+  aspect-ratio: 1/1;
+  background: #f3efe8;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.product-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.product-thumbs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.product-thumb {
+  background: none; border: 2px solid transparent; padding: 0; cursor: pointer;
+  aspect-ratio: 1/1; border-radius: var(--radius-sm); overflow: hidden;
+}
+.product-thumb.active { border-color: var(--color-accent, #c79a4a); }
+.product-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.product-category { font-size: 0.8125rem; color: var(--color-text-muted); margin: 0 0 var(--space-2); text-transform: uppercase; letter-spacing: .05em; }
+.product-price { font-size: 1.5rem; font-weight: 600; margin: 0 0 var(--space-5); }
+.product-description { color: var(--color-text-secondary, #333); line-height: 1.6; margin-bottom: var(--space-5); }
+.product-specs {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--color-border, #e1d9cd);
+  padding-top: var(--space-4);
+  margin: 0;
+}
+.product-specs dt { font-weight: 600; color: var(--color-text-muted); font-size: 0.875rem; }
+.product-specs dd { margin: 0; font-size: 0.9375rem; }
+
+@media (max-width: 720px) {
+  #product-detail { grid-template-columns: 1fr !important; }
+}

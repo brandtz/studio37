@@ -405,6 +405,10 @@
     $('#f-description').value = product?.description || '';
     $('#f-shipping').checked = product?.shipping !== false;
     $('#f-weight').value = product?.weight_oz || '';
+    $('#f-sku').value = product?.sku || '';
+    $('#f-lead-time').value = product?.lead_time_days || '';
+    $('#f-dimensions').value = product?.dimensions || '';
+    $('#f-materials').value = product?.materials || '';
     const status = product?.status || 'available';
     const radio = $(`input[name="status"][value="${status}"]`);
     if (radio) radio.checked = true;
@@ -474,6 +478,10 @@
       images: pendingImages,
       shipping: $('#f-shipping').checked,
       weight_oz: parseInt($('#f-weight').value, 10) || 0,
+      sku: $('#f-sku').value.trim(),
+      lead_time_days: parseInt($('#f-lead-time').value, 10) || null,
+      dimensions: $('#f-dimensions').value.trim(),
+      materials: $('#f-materials').value.trim(),
     };
     try {
       const isNew = !editing;

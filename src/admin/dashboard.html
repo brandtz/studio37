@@ -333,6 +333,26 @@
         <label class="form-label" for="f-weight">Weight (oz, for shipping)</label>
         <input class="form-input" id="f-weight" name="weight_oz" type="number" min="0" />
       </div>
+
+      <hr style="margin:var(--space-5) 0;border:none;border-top:1px solid var(--color-admin-border);" />
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label" for="f-sku">SKU</label>
+          <input class="form-input" id="f-sku" name="sku" type="text" maxlength="40" placeholder="optional" />
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="f-lead-time">Lead time (days)</label>
+          <input class="form-input" id="f-lead-time" name="lead_time_days" type="number" min="0" max="365" placeholder="for by-request items" />
+        </div>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="f-dimensions">Dimensions</label>
+        <input class="form-input" id="f-dimensions" name="dimensions" type="text" maxlength="120" placeholder='e.g. 18" × 12" × 1"' />
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="f-materials">Materials</label>
+        <input class="form-input" id="f-materials" name="materials" type="text" maxlength="240" placeholder="e.g. walnut, food-safe mineral oil" />
+      </div>
     </form>
     <footer class="drawer-foot">
       <button class="btn-admin-ghost" type="button" id="drawer-cancel">Cancel</button>

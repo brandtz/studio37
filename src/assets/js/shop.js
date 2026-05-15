@@ -66,14 +66,15 @@
   }
 
   function renderCard(p) {
+    const href = `/shop/product?id=${encodeURIComponent(p.id)}`;
     return `
       <article class="card-product" data-status="${p.status}">
-        <div class="card-product-img">
+        <a class="card-product-img" href="${href}">
           <img src="${p.images?.[0] || '/assets/images/logo.png'}" alt="${p.name}" loading="lazy" />
-        </div>
+        </a>
         <div class="card-product-body">
           <div class="card-product-category">${categoryLabel(p)}</div>
-          <div class="card-product-name">${p.name}</div>
+          <a class="card-product-name" href="${href}" style="color:inherit;text-decoration:none;">${p.name}</a>
           ${p.subtitle ? `<div class="card-product-sub">${p.subtitle}</div>` : ''}
           <div class="card-product-footer">
             <span class="card-product-price">${p.status === 'by_request' && p.price ? `From ${fmtMoney(p.price)}` : fmtMoney(p.price)}</span>

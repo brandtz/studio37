@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" data-page="product">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#1a1714" />
+  <title>Product &mdash; Studio 37</title>
+  <meta name="description" content="Handcrafted goods from Studio 37." />
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/icon-32.png" />
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/site.css" />
+  <script defer src="/assets/js/site.js"></script>
+  <script defer src="/assets/js/cart.js"></script>
+  <script defer src="/assets/js/product-detail.js"></script>
+</head>
+<body class="grain">
+  <header class="nav"></header>
+  <nav class="nav-mobile-overlay" aria-label="Mobile navigation"></nav>
+
+  <main class="section" id="product-detail-main">
+    <div class="container">
+      <p style="margin-bottom:var(--space-4);"><a href="/shop" style="color:var(--color-accent);">&larr; Back to shop</a></p>
+      <div id="product-detail" style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-7);align-items:start;">
+        <div class="skeleton" style="aspect-ratio:1/1;border-radius:var(--radius-md);"></div>
+        <div>
+          <div class="skeleton" style="height:18px;width:30%;margin-bottom:var(--space-3);"></div>
+          <div class="skeleton" style="height:36px;width:70%;margin-bottom:var(--space-4);"></div>
+          <div class="skeleton" style="height:16px;width:90%;margin-bottom:var(--space-2);"></div>
+          <div class="skeleton" style="height:16px;width:80%;"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer"></footer>
+</body>
+</html>
