@@ -506,3 +506,34 @@ body.admin {
   .form-row { grid-template-columns: 1fr; }
   .admin-toolbar { flex-wrap: wrap; }
 }
+
+/* Custom confirm modal (Epic 7) */
+.confirm-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10000;
+  padding: var(--space-4);
+}
+.confirm-overlay[hidden] { display: none; }
+.confirm-modal {
+  background: var(--color-admin-surface, #1a1a1a);
+  border: 1px solid var(--color-admin-border, #333);
+  border-radius: var(--radius-md, 8px);
+  padding: var(--space-6, 24px);
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 24px 60px rgba(0,0,0,.5);
+}
+.confirm-message {
+  margin: 0 0 var(--space-5, 20px);
+  color: var(--color-admin-text, #eee);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.confirm-actions {
+  display: flex; gap: var(--space-3, 12px); justify-content: flex-end;
+}
+.confirm-modal.danger .btn-admin {
+  background: #c44; border-color: #c44;
+}

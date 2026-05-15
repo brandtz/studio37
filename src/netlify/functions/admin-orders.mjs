@@ -3,7 +3,7 @@
 // PATCH /api/admin/orders/:id       -> { lifecycle?, tracking_number?, tracking_carrier?, internal_notes? }
 // Session-gated.
 
-import { json } from './_lib/store.mjs';
+import { json, logAudit } from './_lib/store.mjs';
 import { requireSession } from './_lib/auth.mjs';
 import { orderStore } from './_lib/stripe.mjs';
 
@@ -93,6 +93,15 @@ export default async (req) => {
     next.updated_by = auth.user?.email || 'admin';
 
     await store.setJSON(id, next);
+    await logAudit({
+      actor: auth.user?.email || 'admin',
+      action: stageChanged ? 'order.lifecycle_change' : 'order.update',
+      entity: 'order',
+      entity_id: id,
+      before: { lifecycle: order.lifecycle, tracking_number: order.tracking_number, tracking_carrier: order.tracking_carrier },
+      after: { lifecycle: next.lifecycle, tracking_number: next.tracking_number, tracking_carrier: next.tracking_carrier },
+      req,
+    });
     return json(next);
   }
 

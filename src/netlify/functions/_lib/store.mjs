@@ -14,6 +14,7 @@ export const CATEGORY_STORE = 'categories';
 export const SITE_MEDIA_STORE = 'site_media';
 export const RATE_LIMIT_STORE = 'rate_limits';
 export const SITE_SETTINGS_STORE = 'site_settings';
+export const AUDIT_LOG_STORE = 'audit_log';
 
 // Bump this whenever the seed data changes — triggers auto-migration on next cold start.
 const SEED_VERSION = 3;
@@ -86,6 +87,57 @@ export async function saveSiteSettings(patch) {
   const next = { ...current, ...patch, updated_at: new Date().toISOString() };
   await store.setJSON(SITE_SETTINGS_KEY, next);
   return next;
+}
+
+// ── Audit log (Epic 7) ──
+export function auditLogStore() {
+  return getStore({ name: AUDIT_LOG_STORE, consistency: 'strong' });
+}
+
+function clientIpFromReq(req) {
+  try {
+    const h = req?.headers;
+    if (!h) return 'unknown';
+    return (h.get?.('x-nf-client-connection-ip')
+      || h.get?.('x-forwarded-for')?.split(',')[0].trim()
+      || 'unknown');
+  } catch { return 'unknown'; }
+}
+
+export async function logAudit({ actor, action, entity, entity_id = '', before = null, after = null, req = null, meta = null }) {
+  try {
+    const store = auditLogStore();
+    const nowIso = new Date().toISOString();
+    const entry = {
+      at: nowIso,
+      actor: actor || 'unknown',
+      action,
+      entity,
+      entity_id: String(entity_id || ''),
+      ip: req ? clientIpFromReq(req) : null,
+      before: before || null,
+      after: after || null,
+      meta: meta || null,
+    };
+    // Key: timestamp + short random for chronological listing and uniqueness.
+    const key = `${nowIso.replace(/[:.]/g, '-')}_${Math.random().toString(36).slice(2, 8)}`;
+    await store.setJSON(key, entry);
+    return entry;
+  } catch (err) {
+    console.warn('[audit] log failed', err?.message);
+    return null;
+  }
+}
+
+export async function listAuditLog({ limit = 200 } = {}) {
+  const store = auditLogStore();
+  const out = [];
+  for await (const { key } of store.list()) {
+    const entry = await store.get(key, { type: 'json' });
+    if (entry) out.push(entry);
+  }
+  out.sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+  return out.slice(0, limit);
 }
 
 export const json = (body, status = 200, extra = {}) =>

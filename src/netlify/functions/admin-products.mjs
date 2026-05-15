@@ -1,12 +1,13 @@
 // /api/admin/products[?id=:id]
 // Admin CRUD on the products blob store. Auth via X-Admin-Key.
 
-import { ensureProductSeeded, productStore, json, nowIso, slugify } from './_lib/store.mjs';
+import { ensureProductSeeded, productStore, json, nowIso, slugify, logAudit } from './_lib/store.mjs';
 import { requireSession } from './_lib/auth.mjs';
 
 export default async (req) => {
   const auth = await requireSession(req);
   if (auth.error) return auth.error;
+  const actor = auth.user?.email || 'unknown';
 
   await ensureProductSeeded();
 
@@ -46,6 +47,7 @@ export default async (req) => {
     if (existing) return json({ error: 'id already exists' }, 409);
     const product = sanitize({ ...body, id: productId, created_at: nowIso(), updated_at: nowIso() });
     await store.setJSON(productId, product);
+    await logAudit({ actor, action: 'product.create', entity: 'product', entity_id: productId, after: product, req });
     return json(product, 201);
   }
 
@@ -58,6 +60,7 @@ export default async (req) => {
     if (!existing) return json({ error: 'not_found' }, 404);
     const updated = sanitize({ ...existing, ...body, id, updated_at: nowIso() });
     await store.setJSON(id, updated);
+    await logAudit({ actor, action: 'product.update', entity: 'product', entity_id: id, before: existing, after: updated, req });
     return json(updated);
   }
 
@@ -68,6 +71,7 @@ export default async (req) => {
     if (!existing) return json({ error: 'not_found' }, 404);
     const updated = { ...existing, status: 'archived', updated_at: nowIso() };
     await store.setJSON(id, updated);
+    await logAudit({ actor, action: 'product.archive', entity: 'product', entity_id: id, before: existing, after: updated, req });
     return json(updated);
   }
 

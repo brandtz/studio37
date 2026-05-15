@@ -190,7 +190,10 @@
   // ── auth flow ──────────────────────────────────────────
   $('#logout').addEventListener('click', async (e) => {
     e.preventDefault();
-    if (dirtyDrawers.size > 0 && !confirm('You have unsaved changes. Sign out anyway?')) return;
+    if (dirtyDrawers.size > 0) {
+      const ok = await confirmDialog('You have unsaved changes. Sign out anyway?', { okText: 'Sign out', danger: true });
+      if (!ok) return;
+    }
     clearAllDirty();
     try { authChannel?.postMessage({ type: 'logout', reason: 'manual' }); } catch { /* ignore */ }
     try { await fetch('/api/auth/logout', { method: 'POST' }); } catch { /* ignore */ }
@@ -330,7 +333,8 @@
         const id = b.closest('tr').dataset.id;
         const p = products.find((x) => x.id === id);
         if (!p) return;
-        if (!confirm(`Archive "${p.name}"? It will be hidden from the public shop.`)) return;
+        const archiveOk = await confirmDialog(`Archive "${p.name}"? It will be hidden from the public shop.`, { okText: 'Archive', danger: true });
+        if (!archiveOk) return;
         try {
           await api(`/api/admin/products/${encodeURIComponent(id)}`, { method: 'DELETE' });
           toast('Archived.');
@@ -616,7 +620,8 @@
     tbody.querySelectorAll('button[data-review-action="delete"]').forEach((b) => {
       b.addEventListener('click', async () => {
         const id = b.closest('tr').dataset.id;
-        if (!confirm('Delete this review?')) return;
+        const delOk = await confirmDialog('Delete this review?', { okText: 'Delete', danger: true });
+        if (!delOk) return;
         try {
           await api(`/api/admin/reviews/${encodeURIComponent(id)}`, { method: 'DELETE' });
           toast('Review deleted.');
@@ -1048,11 +1053,13 @@
         const action = btn.dataset.userAction;
         try {
           if (action === 'delete') {
-            if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
+            const delUserOk = await confirmDialog(`Delete user ${email}? This cannot be undone.`, { okText: 'Delete', danger: true });
+            if (!delUserOk) return;
             await api(`/api/admin/users/${encodeURIComponent(email)}`, { method: 'DELETE' });
             toast('User removed.');
           } else if (action === 'reset-password') {
-            if (!confirm(`Reset password for ${email}? They will set a new one on next sign-in.`)) return;
+            const resetOk = await confirmDialog(`Reset password for ${email}? They will set a new one on next sign-in.`, { okText: 'Reset password' });
+            if (!resetOk) return;
             await api(`/api/admin/users/${encodeURIComponent(email)}/reset-password`, { method: 'POST' });
             toast('Password reset. They will create a new one on next login.');
           } else {
@@ -1341,7 +1348,8 @@
 
   $('#slot-reset').addEventListener('click', async () => {
     if (!editingSlot) return;
-    if (!confirm('Revert this slot to the default image?')) return;
+    const revertOk = await confirmDialog('Revert this slot to the default image?', { okText: 'Revert' });
+    if (!revertOk) return;
     try {
       await api(`/api/admin/site-media/${encodeURIComponent(editingSlot.slot)}`, { method: 'DELETE' });
       toast('Slot reverted to default');
@@ -1359,6 +1367,49 @@
     toastEl.classList.toggle('error', error);
     toastEl.classList.add('show');
     setTimeout(() => toastEl.classList.remove('show'), 2800);
+  }
+
+  // ── custom confirm dialog (Epic 7) ─────────────────────
+  // Replaces native confirm() for a consistent admin look.
+  // Usage: const ok = await confirmDialog('Are you sure?', { okText: 'Delete', danger: true });
+  function confirmDialog(message, { okText = 'Confirm', cancelText = 'Cancel', danger = false } = {}) {
+    return new Promise((resolve) => {
+      const overlay = $('#confirm-overlay');
+      const modal = overlay.querySelector('.confirm-modal');
+      const msgEl = $('#confirm-message');
+      const okBtn = $('#confirm-ok');
+      const cancelBtn = $('#confirm-cancel');
+      if (!overlay || !modal || !msgEl || !okBtn || !cancelBtn) {
+        resolve(window.confirm(message));
+        return;
+      }
+      msgEl.textContent = message;
+      okBtn.textContent = okText;
+      cancelBtn.textContent = cancelText;
+      modal.classList.toggle('danger', !!danger);
+      overlay.hidden = false;
+
+      const cleanup = (result) => {
+        overlay.hidden = true;
+        okBtn.removeEventListener('click', onOk);
+        cancelBtn.removeEventListener('click', onCancel);
+        overlay.removeEventListener('click', onOverlay);
+        document.removeEventListener('keydown', onKey);
+        resolve(result);
+      };
+      const onOk = () => cleanup(true);
+      const onCancel = () => cleanup(false);
+      const onOverlay = (e) => { if (e.target === overlay) cleanup(false); };
+      const onKey = (e) => {
+        if (e.key === 'Escape') cleanup(false);
+        if (e.key === 'Enter') cleanup(true);
+      };
+      okBtn.addEventListener('click', onOk);
+      cancelBtn.addEventListener('click', onCancel);
+      overlay.addEventListener('click', onOverlay);
+      document.addEventListener('keydown', onKey);
+      setTimeout(() => okBtn.focus(), 0);
+    });
   }
 
   // ── boot ────────────────────────────────────────────────
