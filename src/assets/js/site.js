@@ -10,7 +10,7 @@
   // Page-level <head> sets <html data-page="home"> etc. so we can highlight the nav link.
   const NAV_HTML = `
     <a href="/" class="nav-logo" aria-label="Studio 37 home">
-      <img src="/assets/images/logo-mark.png" alt="Studio 37 Custom Designs" />
+      <img src="/assets/images/logo.png" alt="Studio 37 Custom Designs" />
     </a>
     <ul class="nav-links">
       <li><a href="/" data-page="home">Home</a></li>
@@ -53,7 +53,7 @@
   const FOOTER_HTML = `
     <div class="footer-inner">
       <div class="footer-brand">
-        <img src="/assets/images/logo-mark.png" alt="Studio 37 Custom Designs" />
+        <img src="/assets/images/logo.png" alt="Studio 37 Custom Designs" />
         <p>Custom woodworking, cabinetry, and design — handcrafted in Springfield, Oregon.</p>
         <div class="footer-social">
           <a href="https://www.instagram.com/studio37_customwoodworking" target="_blank" rel="noopener" aria-label="Instagram">
