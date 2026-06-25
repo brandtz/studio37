@@ -9,6 +9,7 @@ import twilio from 'twilio';
 const SERVICE_LABEL = {
   cabinetry: 'Cabinetry',
   slab: 'Slab Flattening',
+  'cnc-laser': 'CNC & Laser Engraving',
   furniture: 'Custom Furniture',
   'small-goods': 'Small Goods',
   gc: 'GC Work',
