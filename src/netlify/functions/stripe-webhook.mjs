@@ -10,6 +10,7 @@
 import twilio from 'twilio';
 import { json } from './_lib/store.mjs';
 import { stripe, orderStore } from './_lib/stripe.mjs';
+import { sendOrderConfirmation } from './_lib/email.mjs';
 
 export default async (req) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
@@ -83,12 +84,13 @@ async function onCheckoutComplete(session, connectedAccount) {
   } catch { /* treat as not-found */ }
 
   if (existing && existing.id === session.id) {
-    if (existing.sms_sent) {
-      console.log('[stripe-webhook] duplicate event (already SMSd), skipping', session.id);
+    if (existing.sms_sent && existing.email_sent) {
+      console.log('[stripe-webhook] duplicate event (already notified), skipping', session.id);
       return;
     }
-    // Order persisted previously but SMS hadn't yet succeeded — retry only the SMS.
+    // Order persisted previously but a notification hadn't yet succeeded — retry only the missing pieces.
     await maybeSendOrderSms(existing);
+    await maybeSendOrderEmail(existing);
     return;
   }
 
@@ -133,6 +135,9 @@ async function onCheckoutComplete(session, connectedAccount) {
     status_history: [{ stage: 'new', at: nowIso, by: 'system' }],
     sms_sent: false,
     sms_sent_at: null,
+    email_sent: false,
+    email_sent_at: null,
+    email_id: null,
   };
 
   try {
@@ -142,6 +147,7 @@ async function onCheckoutComplete(session, connectedAccount) {
   }
 
   await maybeSendOrderSms(order);
+  await maybeSendOrderEmail(order);
 }
 
 async function maybeSendOrderSms(order) {
@@ -164,12 +170,33 @@ async function maybeSendOrderSms(order) {
 
     // Mark SMS as sent so a Stripe retry doesn't re-text.
     try {
-      await orderStore().setJSON(order.id, { ...order, sms_sent: true, sms_sent_at: new Date().toISOString() });
+      const latest = (await orderStore().get(order.id, { type: 'json' })) || order;
+      await orderStore().setJSON(order.id, { ...latest, sms_sent: true, sms_sent_at: new Date().toISOString() });
     } catch (err) {
       console.warn('[stripe-webhook] could not flag sms_sent', err?.message);
     }
   } catch (err) {
     console.error('[stripe-webhook] SMS failed', err?.message || err);
+  }
+}
+
+async function maybeSendOrderEmail(order) {
+  if (order.email_sent) return;
+  if (!order.customer_email) return;
+
+  const result = await sendOrderConfirmation(order);
+  if (!result.ok) return;
+
+  try {
+    const latest = (await orderStore().get(order.id, { type: 'json' })) || order;
+    await orderStore().setJSON(order.id, {
+      ...latest,
+      email_sent: true,
+      email_sent_at: new Date().toISOString(),
+      email_id: result.id || null,
+    });
+  } catch (err) {
+    console.warn('[stripe-webhook] could not flag email_sent', err?.message);
   }
 }
 

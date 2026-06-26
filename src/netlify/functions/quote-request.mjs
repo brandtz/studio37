@@ -4,6 +4,7 @@
 
 import { leadStore, json, nowIso } from './_lib/store.mjs';
 import { checkRateLimit, clientIp } from './_lib/rate-limit.mjs';
+import { sendLeadNotification, sendLeadAcknowledgement } from './_lib/email.mjs';
 import twilio from 'twilio';
 
 const SERVICE_LABEL = {
@@ -103,6 +104,26 @@ export default async (req) => {
     console.error('lead persist failed', e);
   }
 
+  // Pre-resolve human labels once and share with both email helpers + SMS.
+  const labels = {
+    service: SERVICE_LABEL[lead.service] || lead.service,
+    budget: lead.budget ? (BUDGET_LABEL[lead.budget] || lead.budget) : '',
+  };
+
+  // Email Drew (best-effort — don't fail the request if Resend errors).
+  try {
+    await sendLeadNotification(lead, labels);
+  } catch (e) {
+    console.error('lead notify email failed', e);
+  }
+
+  // Email the customer a receipt (best-effort).
+  try {
+    await sendLeadAcknowledgement(lead, labels);
+  } catch (e) {
+    console.error('lead acknowledgement email failed', e);
+  }
+
   // Send SMS to Drew (best-effort — don't fail the request if Twilio errors).
   try {
     const { TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM, DREW_PHONE } = process.env;
@@ -111,8 +132,8 @@ export default async (req) => {
       const msg = [
         `📋 New Studio 37 Quote Request`,
         `From: ${lead.firstName} ${lead.lastName} (${lead.phone})`,
-        `Service: ${SERVICE_LABEL[lead.service] || lead.service}`,
-        lead.budget ? `Budget: ${BUDGET_LABEL[lead.budget] || lead.budget}` : null,
+        `Service: ${labels.service}`,
+        labels.budget ? `Budget: ${labels.budget}` : null,
         lead.location ? `Location: ${lead.location}` : null,
         `"${lead.description.slice(0, 240)}${lead.description.length > 240 ? '…' : ''}"`,
         `Reply to: ${lead.email}`,
