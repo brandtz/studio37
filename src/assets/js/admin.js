@@ -308,8 +308,8 @@
       <tr data-id="${p.id}">
         <td><img class="admin-table-thumb admin-row-clickable" data-action="edit" src="${p.images?.[0] || '/assets/images/logo.png'}" alt="" /></td>
         <td>
-          <span class="admin-table-name admin-row-clickable" data-action="edit">${p.name}</span>
-          ${p.subtitle ? `<span class="admin-table-sub">${p.subtitle}</span>` : ''}
+          <span class="admin-table-name admin-row-clickable" data-action="edit">${escapeHtml(p.name)}</span>
+          ${p.subtitle ? `<span class="admin-table-sub">${escapeHtml(p.subtitle)}</span>` : ''}
         </td>
         <td><span class="admin-table-price">${fmtMoney(p.price)}</span></td>
         <td><span class="admin-status-dot admin-status-${p.status}"></span>${statusLabel(p.status)}</td>
@@ -362,7 +362,7 @@
     sel.innerHTML = '<option value="">Select a product</option>' + products
       .filter((p) => p.status !== 'archived')
       .sort((a, b) => a.name.localeCompare(b.name))
-      .map((p) => `<option value="${p.id}">${p.name}</option>`).join('');
+      .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('');
     if (products.some((p) => p.id === prev)) sel.value = prev;
     renderMediaThumbs();
   }
@@ -583,10 +583,10 @@
       <tr data-id="${r.id}">
         <td><span class="admin-table-price">${stars(r.stars || 5)}</span></td>
         <td>
-          <span class="admin-table-name">${(r.text || '').slice(0, 110)}${(r.text || '').length > 110 ? '…' : ''}</span>
-          ${r.project ? `<span class="admin-table-sub">${r.project}</span>` : ''}
+          <span class="admin-table-name">${escapeHtml((r.text || '').slice(0, 110))}${(r.text || '').length > 110 ? '…' : ''}</span>
+          ${r.project ? `<span class="admin-table-sub">${escapeHtml(r.project)}</span>` : ''}
         </td>
-        <td>${r.name || '—'}<span class="admin-table-sub">${r.location || ''}</span></td>
+        <td>${escapeHtml(r.name || '—')}<span class="admin-table-sub">${escapeHtml(r.location || '')}</span></td>
         <td>${r.published === false ? 'Hidden' : 'Published'}</td>
         <td style="text-align:right;">
           <button class="btn-admin-ghost" data-review-action="edit">Edit</button>
@@ -706,10 +706,10 @@
       tbody.innerHTML = leads.map((l) => `
         <tr>
           <td>${new Date(l.created_at).toLocaleString()}</td>
-          <td>${[l.firstName, l.lastName].filter(Boolean).join(' ') || '—'}</td>
-          <td>${l.service || '—'}</td>
-          <td>${l.phone ? `<a href="tel:${l.phone}" style="color:var(--color-accent);">${l.phone}</a>` : '—'}</td>
-          <td>${l.email ? `<a href="mailto:${l.email}" style="color:var(--color-accent);">${l.email}</a>` : '—'}</td>
+          <td>${escapeHtml([l.firstName, l.lastName].filter(Boolean).join(' ') || '—')}</td>
+          <td>${escapeHtml(l.service || '—')}</td>
+          <td>${l.phone ? `<a href="tel:${escapeHtml(l.phone)}" style="color:var(--color-accent);">${escapeHtml(l.phone)}</a>` : '—'}</td>
+          <td>${l.email ? `<a href="mailto:${escapeHtml(l.email)}" style="color:var(--color-accent);">${escapeHtml(l.email)}</a>` : '—'}</td>
         </tr>
       `).join('');
     } catch (err) {

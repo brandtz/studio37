@@ -367,7 +367,7 @@
       // Tiny banner via prompt-style toast
       const el = document.createElement('div');
       el.className = 'checkout-banner success';
-      el.innerHTML = `<strong>Thank you!</strong> Your order is in. You'll get a confirmation email from Stripe shortly.`;
+      el.innerHTML = `<strong>Thank you!</strong> Your order is in. You'll receive a confirmation email shortly.`;
       document.body.appendChild(el);
       setTimeout(() => el.classList.add('show'), 50);
       setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 8000);
