@@ -468,8 +468,7 @@ Full list of env vars expected by the Netlify Functions layer. All must be set i
 | Variable | Required | Source | Notes |
 |---|---|---|---|
 | `JWT_SECRET` | ✅ | Generate | Min 32 chars random string. Used to sign admin session JWTs. |
-| `ADMIN_KEY` | ✅ | Generate | Legacy fallback for admin API key auth. Generate strong random string. |
-| `STRIPE_SECRET_KEY` | ✅ | Stripe dashboard | Drew's live secret key (`sk_live_...`) |
+| `STRIPE_SECRET_KEY` | ✅ | Stripe dashboard | **Platform (Brandtworks) secret key** (`sk_live_...`) — NOT Drew's key. The platform key makes all API calls; Drew's account is referenced via `stripe_account_id` in the tenant record. |
 | `STRIPE_WEBHOOK_SECRET` | ✅ | Stripe webhook config | Connected-accounts webhook signing secret |
 | `STRIPE_WEBHOOK_SECRET_PLATFORM` | ⬜ | Stripe webhook config | Platform-level webhook secret (if separate endpoint registered) |
 | `STRIPE_PLATFORM_ACCOUNT_ID` | ✅ | Stripe dashboard | Platform Stripe account ID (`acct_...`) |
