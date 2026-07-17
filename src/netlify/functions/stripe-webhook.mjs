@@ -86,7 +86,15 @@ async function onPaymentIntentSucceeded(pi, connectedAccount) {
     const tenantId = pi?.metadata?.tenant_id || 'studio37';
     const res = await importPaymentIntentAsOrder(pi, tenantId, connectedAccount);
     if (res.action === 'imported') {
-      console.log('[stripe-webhook] imported standalone in-person payment as order', pi.id);
+      console.log('[stripe-webhook] imported payment as order via payment_intent.succeeded', res.order.id, res.order.source);
+      // Handles the race against checkout.session.completed for the same
+      // transaction: whichever event processes first sends the notification
+      // and flips sms_sent/email_sent; the other sees those already true and
+      // skips (see the guard at the top of each maybe* function below).
+      // Standalone in-person orders already have these flags pre-set true in
+      // buildStandaloneOrder, so this is a no-op for those.
+      await maybeSendOrderSms(res.order);
+      await maybeSendOrderEmail(res.order);
     }
   } catch (err) {
     console.error('[stripe-webhook] payment_intent.succeeded handling failed', err);
