@@ -886,7 +886,7 @@
     status.textContent = 'Linking…';
     status.style.color = '';
     try {
-      const res = await api('/api/admin/stripe-connect/onboard', {
+      const res = await api('/api/admin/stripe-connect?action=onboard', {
         method: 'POST',
         body: JSON.stringify({ tenantId: 'studio37', accountId }),
       });
@@ -941,7 +941,7 @@
           const tenantId = btn.dataset.connectOnboard;
           btn.disabled = true; btn.textContent = 'Opening Stripe…';
           try {
-            const res = await api('/api/admin/stripe-connect/onboard', {
+            const res = await api('/api/admin/stripe-connect?action=onboard', {
               method: 'POST',
               body: JSON.stringify({ tenantId }),
             });
@@ -1489,7 +1489,7 @@
       if (hash.startsWith('#connect') && hashParams.get('refresh') === '1') {
         setSection('connect');
         try {
-          const res = await api('/api/admin/stripe-connect/onboard', {
+          const res = await api('/api/admin/stripe-connect?action=onboard', {
             method: 'POST',
             body: JSON.stringify({ tenantId: 'studio37' }),
           });
