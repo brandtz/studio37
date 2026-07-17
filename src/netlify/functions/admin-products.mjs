@@ -3,6 +3,31 @@
 
 import { ensureProductSeeded, productStore, json, nowIso, slugify, logAudit } from './_lib/store.mjs';
 import { requireSession } from './_lib/auth.mjs';
+import { resolveTenant, tenantHasAccount } from './_lib/stripe.mjs';
+import { syncOneProductToStripe, deactivateStripeProduct } from './_lib/stripe-product-sync.mjs';
+
+// Best-effort push to Stripe — never blocks or fails a product save. Mirrors
+// the SMS/email pattern used elsewhere in this codebase: if Stripe isn't
+// connected yet, or the API call errors, we log and move on.
+async function bestEffortStripeSync(product) {
+  try {
+    const tenant = await resolveTenant('studio37');
+    if (!tenantHasAccount(tenant)) return;
+    await syncOneProductToStripe(tenant, product);
+  } catch (err) {
+    console.warn('[admin-products] Stripe sync failed for', product?.id, err?.message || err);
+  }
+}
+
+async function bestEffortStripeDeactivate(product) {
+  try {
+    const tenant = await resolveTenant('studio37');
+    if (!tenantHasAccount(tenant)) return;
+    await deactivateStripeProduct(tenant, product);
+  } catch (err) {
+    console.warn('[admin-products] Stripe deactivate failed for', product?.id, err?.message || err);
+  }
+}
 
 export default async (req) => {
   const auth = await requireSession(req);
@@ -48,6 +73,8 @@ export default async (req) => {
     const product = sanitize({ ...body, id: productId, created_at: nowIso(), updated_at: nowIso() });
     await store.setJSON(productId, product);
     await logAudit({ actor, action: 'product.create', entity: 'product', entity_id: productId, after: product, req });
+    if (product.status === 'archived') await bestEffortStripeDeactivate(product);
+    else await bestEffortStripeSync(product);
     return json(product, 201);
   }
 
@@ -61,6 +88,8 @@ export default async (req) => {
     const updated = sanitize({ ...existing, ...body, id, updated_at: nowIso() });
     await store.setJSON(id, updated);
     await logAudit({ actor, action: 'product.update', entity: 'product', entity_id: id, before: existing, after: updated, req });
+    if (updated.status === 'archived') await bestEffortStripeDeactivate(updated);
+    else await bestEffortStripeSync(updated);
     return json(updated);
   }
 
@@ -72,6 +101,7 @@ export default async (req) => {
     const updated = { ...existing, status: 'archived', updated_at: nowIso() };
     await store.setJSON(id, updated);
     await logAudit({ actor, action: 'product.archive', entity: 'product', entity_id: id, before: existing, after: updated, req });
+    await bestEffortStripeDeactivate(updated);
     return json(updated);
   }
 
