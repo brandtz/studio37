@@ -101,9 +101,12 @@ export default async (req) => {
 
   if (anyShippable) {
     params.shipping_address_collection = { allowed_countries: ['US'] };
-    // Flat-rate domestic shipping placeholder. Drew can edit Shipping Rates in his
-    // own Stripe dashboard, then we reference rate IDs here.
-    // For now: free shipping over $150, $12 flat under.
+    // Two choices at Stripe Checkout: paid/free shipping, or a free local
+    // pickup option for customers (e.g. at an in-person event) who'll grab
+    // the piece from Drew directly. Note: Stripe Checkout always asks for a
+    // shipping address regardless of which option is selected — that's a
+    // platform limitation, not something we can suppress per-option. Safe to
+    // ignore/skip for pickup orders.
     params.shipping_options = [
       {
         shipping_rate_data: {
@@ -113,6 +116,17 @@ export default async (req) => {
           delivery_estimate: {
             minimum: { unit: 'business_day', value: 3 },
             maximum: { unit: 'business_day', value: 7 },
+          },
+        },
+      },
+      {
+        shipping_rate_data: {
+          type: 'fixed_amount',
+          display_name: 'Local Pickup (Springfield, OR) — Free',
+          fixed_amount: { amount: 0, currency: 'usd' },
+          delivery_estimate: {
+            minimum: { unit: 'business_day', value: 1 },
+            maximum: { unit: 'business_day', value: 3 },
           },
         },
       },
