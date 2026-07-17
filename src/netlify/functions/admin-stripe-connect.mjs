@@ -28,11 +28,16 @@ export default async (req) => {
   const action = url.searchParams.get('action') || ''; // 'onboard' | 'login-link' | 'status' | 'list'
   // tenant id can come from query string or JSON body (POST)
   let tenantId = url.searchParams.get('tenant') || '';
-  if (!tenantId && (req.method === 'POST' || req.method === 'PUT')) {
+  // Also grab an optional `accountId` from the POST body — used by the "link
+  // existing Stripe account" flow when an account was created directly in the
+  // Stripe dashboard rather than through our onboarding button.
+  let bodyAccountId = '';
+  if ((req.method === 'POST' || req.method === 'PUT')) {
     try {
       const cloned = req.clone ? req.clone() : null;
       const body = cloned ? await cloned.json().catch(() => null) : null;
-      if (body && typeof body.tenantId === 'string') tenantId = body.tenantId;
+      if (body && typeof body.tenantId === 'string' && !tenantId) tenantId = body.tenantId;
+      if (body && typeof body.accountId === 'string') bodyAccountId = body.accountId.trim();
     } catch { /* ignore */ }
   }
   if (!tenantId) tenantId = 'studio37';
@@ -68,7 +73,19 @@ export default async (req) => {
     let acctId = tenant.value.stripe_account_id;
 
     try {
-      if (!acctId) {
+      if (!acctId && bodyAccountId) {
+        // Link an account that was created directly in the Stripe dashboard
+        // (rather than via our onboarding flow). Verify it exists and belongs
+        // to this platform before saving it against the tenant.
+        try {
+          const existing = await stripe().accounts.retrieve(bodyAccountId);
+          acctId = existing.id;
+        } catch (err) {
+          console.error('[stripe-connect] provided accountId not found', err);
+          return json({ error: 'account_not_found', message: 'Could not find that Stripe account ID on this platform.' }, 400);
+        }
+        await saveTenant({ ...tenant.value, stripe_account_id: acctId });
+      } else if (!acctId) {
         const acct = await stripe().accounts.create({
           type: 'standard',
           country: tenant.value.country || 'US',

@@ -253,6 +253,19 @@
             (Standard) — they own the funds, taxes, and customer-facing payment flows. Onboarding
             opens a Stripe-hosted form for KYC and bank setup.
           </p>
+          <div class="card" style="padding:var(--space-5);margin-bottom:var(--space-5);max-width:680px;">
+            <h3 style="margin:0 0 var(--space-2);font-size:1rem;">Link an existing Stripe account</h3>
+            <p style="color:var(--color-text-muted);font-size:.875rem;margin:0 0 var(--space-3);">
+              If a Stripe Connect account was already created directly in the Stripe dashboard
+              (rather than via "Continue Onboarding" below), paste its account ID here to attach
+              it to the studio37 tenant. This does not create a new account.
+            </p>
+            <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
+              <input id="connect-link-account-id" type="text" placeholder="acct_..." style="flex:1;min-width:220px;" />
+              <button type="button" id="connect-link-account-btn" class="btn-admin-primary">Link account</button>
+            </div>
+            <p id="connect-link-status" style="font-size:.8125rem;margin:var(--space-2) 0 0;"></p>
+          </div>
           <table class="admin-table">
             <thead>
               <tr>

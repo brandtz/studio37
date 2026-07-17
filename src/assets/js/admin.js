@@ -874,6 +874,32 @@
   });
 
   // ── stripe connect ─────────────────────────────────────
+  $('#connect-link-account-btn')?.addEventListener('click', async () => {
+    const input = $('#connect-link-account-id');
+    const status = $('#connect-link-status');
+    const accountId = (input.value || '').trim();
+    if (!accountId.startsWith('acct_')) {
+      status.textContent = 'Enter a valid Stripe account ID (starts with "acct_").';
+      status.style.color = 'var(--color-danger, #b54)';
+      return;
+    }
+    status.textContent = 'Linking…';
+    status.style.color = '';
+    try {
+      const res = await api('/api/admin/stripe-connect/onboard', {
+        method: 'POST',
+        body: JSON.stringify({ tenantId: 'studio37', accountId }),
+      });
+      status.textContent = 'Linked. Onboarding link opened in a new tab — have Drew finish it there.';
+      if (res?.url) window.open(res.url, '_blank', 'noopener');
+      input.value = '';
+      await loadConnect();
+    } catch (err) {
+      status.textContent = 'Could not link account: ' + (err.message || '');
+      status.style.color = 'var(--color-danger, #b54)';
+    }
+  });
+
   async function loadConnect() {
     const tbody = $('#connect-tbody');
     if (!tbody) return;
