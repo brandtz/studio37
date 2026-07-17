@@ -756,13 +756,16 @@
         const stripeLink = o.payment_intent
           ? `<a href="https://dashboard.stripe.com/payments/${escapeHtml(o.payment_intent)}" target="_blank" rel="noopener" style="color:var(--color-accent);" onclick="event.stopPropagation()">Open &rarr;</a>`
           : '—';
+        const sourceBadge = o.source === 'stripe_direct'
+          ? `<span class="badge badge-neutral" title="Collected directly in Stripe (Tap to Pay / Dashboard)">In-person</span>`
+          : `<span class="badge badge-ok" title="Placed through the website">Online</span>`;
         return `
           <tr data-order-id="${escapeHtml(o.id)}" style="cursor:pointer;">
             <td>${when}</td>
             <td>${customer}</td>
             <td>${items}</td>
             <td>${total}</td>
-            <td><span class="badge badge-${escapeHtml(o.lifecycle || 'new')}">${stage}</span></td>
+            <td><span class="badge badge-${escapeHtml(o.lifecycle || 'new')}">${stage}</span> ${sourceBadge}</td>
             <td style="text-align:right;">${stripeLink}</td>
           </tr>
         `;
@@ -919,6 +922,33 @@
       if (res.failed) status.style.color = 'var(--color-danger, #b54)';
     } catch (err) {
       status.textContent = 'Sync failed: ' + (err.message || '');
+      status.style.color = 'var(--color-danger, #b54)';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  });
+
+  $('#connect-import-payments-btn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const status = $('#connect-import-status');
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = 'Importing…';
+    status.textContent = '';
+    status.style.color = '';
+    try {
+      const res = await api('/api/admin/stripe-connect?action=import-payments', {
+        method: 'POST',
+        body: JSON.stringify({ tenantId: 'studio37' }),
+      });
+      const parts = [`${res.imported || 0} imported`, `${res.skipped || 0} already tracked`];
+      if (res.failed) parts.push(`${res.failed} failed`);
+      status.textContent = 'Done — ' + parts.join(', ') + '.';
+      if (res.failed) status.style.color = 'var(--color-danger, #b54)';
+      if (res.imported) await loadOrders();
+    } catch (err) {
+      status.textContent = 'Import failed: ' + (err.message || '');
       status.style.color = 'var(--color-danger, #b54)';
     } finally {
       btn.disabled = false;

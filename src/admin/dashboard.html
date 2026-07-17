@@ -279,6 +279,18 @@
             <button type="button" id="connect-sync-products-btn" class="btn-admin-primary">Sync products to Stripe</button>
             <p id="connect-sync-status" style="font-size:.8125rem;margin:var(--space-2) 0 0;"></p>
           </div>
+          <div class="card" style="padding:var(--space-5);margin-bottom:var(--space-5);max-width:680px;">
+            <h3 style="margin:0 0 var(--space-2);font-size:1rem;">Import historical Stripe payments</h3>
+            <p style="color:var(--color-text-muted);font-size:.875rem;margin:0 0 var(--space-3);">
+              New in-person payments (Tap to Pay, or anything collected directly in the Stripe
+              Dashboard app) are captured automatically going forward. Use this button to pull in
+              any sales from the last 90 days that happened before that was wired up, or if one was
+              ever missed. They'll show up in Orders marked Complete. Safe to re-run \u2014 it never
+              creates duplicates.
+            </p>
+            <button type="button" id="connect-import-payments-btn" class="btn-admin-primary">Import historical payments</button>
+            <p id="connect-import-status" style="font-size:.8125rem;margin:var(--space-2) 0 0;"></p>
+          </div>
           <table class="admin-table">
             <thead>
               <tr>

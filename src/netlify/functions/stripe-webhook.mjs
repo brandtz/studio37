@@ -11,6 +11,7 @@ import twilio from 'twilio';
 import { json } from './_lib/store.mjs';
 import { stripe, orderStore } from './_lib/stripe.mjs';
 import { sendOrderConfirmation } from './_lib/email.mjs';
+import { importPaymentIntentAsOrder } from './_lib/stripe-order-sync.mjs';
 
 export default async (req) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
@@ -49,6 +50,14 @@ export default async (req) => {
       case 'checkout.session.completed':
         await onCheckoutComplete(evt.data.object, connectedAccount);
         break;
+      case 'payment_intent.succeeded':
+        // Only standalone charges (Tap to Pay / manually collected in Stripe)
+        // reach this path — website checkouts and Payment Links are already
+        // fully handled above via checkout.session.completed, and
+        // importPaymentIntentAsOrder() detects + skips those to avoid
+        // duplicating the order.
+        await onPaymentIntentSucceeded(evt.data.object, connectedAccount);
+        break;
       case 'payment_intent.payment_failed':
         console.warn('[stripe-webhook] payment failed', evt.data.object?.id, evt.data.object?.last_payment_error?.message);
         break;
@@ -71,6 +80,18 @@ export default async (req) => {
 
   return json({ received: true });
 };
+
+async function onPaymentIntentSucceeded(pi, connectedAccount) {
+  try {
+    const tenantId = pi?.metadata?.tenant_id || 'studio37';
+    const res = await importPaymentIntentAsOrder(pi, tenantId, connectedAccount);
+    if (res.action === 'imported') {
+      console.log('[stripe-webhook] imported standalone in-person payment as order', pi.id);
+    }
+  } catch (err) {
+    console.error('[stripe-webhook] payment_intent.succeeded handling failed', err);
+  }
+}
 
 async function onCheckoutComplete(session, connectedAccount) {
   const tenantId = session?.metadata?.tenant_id || 'studio37';
@@ -108,6 +129,7 @@ async function onCheckoutComplete(session, connectedAccount) {
     id: session.id,
     tenant_id: tenantId,
     stripe_account_id: connectedAccount,
+    source: 'website_checkout', // vs 'stripe_direct' — surfaced in Admin as "Online"
     payment_intent: session.payment_intent || null,
     customer_email: session.customer_details?.email || session.customer_email || null,
     customer_name: session.customer_details?.name || null,

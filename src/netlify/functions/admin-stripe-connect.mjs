@@ -20,6 +20,7 @@ import {
   listTenants,
 } from './_lib/stripe.mjs';
 import { syncAllProductsToStripe } from './_lib/stripe-product-sync.mjs';
+import { importHistoricalPayments } from './_lib/stripe-order-sync.mjs';
 
 export default async (req) => {
   const auth = await requireSession(req, { minRole: 'super' });
@@ -161,6 +162,14 @@ export default async (req) => {
     if (!tenant.value.stripe_account_id) return json({ error: 'no_account' }, 400);
     await ensureProductSeeded();
     const results = await syncAllProductsToStripe(tenant.value, productStore());
+    return json(results);
+  }
+
+  if (action === 'import-payments' && req.method === 'POST') {
+    const tenant = await resolveTenantOrFail(tenantId);
+    if (tenant.error) return tenant.error;
+    if (!tenant.value.stripe_account_id) return json({ error: 'no_account' }, 400);
+    const results = await importHistoricalPayments(tenant.value, {});
     return json(results);
   }
 
