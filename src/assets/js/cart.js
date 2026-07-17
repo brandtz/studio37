@@ -352,8 +352,15 @@
 
   // ── nav cart button binding ────────────────────────────
   function wireNavCart() {
-    document.querySelectorAll('[data-cart-toggle]').forEach((el) => {
-      el.addEventListener('click', (e) => { e.preventDefault(); open(); });
+    // The shared nav is injected by site.js on DOMContentLoaded. Deferred scripts
+    // can run while readyState is already "interactive", so the cart may boot
+    // before that button exists. Delegate from document so injected/replaced nav
+    // buttons always work.
+    document.addEventListener('click', (e) => {
+      const toggle = e.target.closest?.('[data-cart-toggle]');
+      if (!toggle) return;
+      e.preventDefault();
+      open();
     });
   }
 
