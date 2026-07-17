@@ -900,6 +900,32 @@
     }
   });
 
+  $('#connect-sync-products-btn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const status = $('#connect-sync-status');
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = 'Syncing…';
+    status.textContent = '';
+    status.style.color = '';
+    try {
+      const res = await api('/api/admin/stripe-connect?action=sync-products', {
+        method: 'POST',
+        body: JSON.stringify({ tenantId: 'studio37' }),
+      });
+      const parts = [`${res.created || 0} created`, `${res.updated || 0} updated`, `${res.skipped || 0} skipped`];
+      if (res.failed) parts.push(`${res.failed} failed`);
+      status.textContent = 'Done — ' + parts.join(', ') + '.';
+      if (res.failed) status.style.color = 'var(--color-danger, #b54)';
+    } catch (err) {
+      status.textContent = 'Sync failed: ' + (err.message || '');
+      status.style.color = 'var(--color-danger, #b54)';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  });
+
   async function loadConnect() {
     const tbody = $('#connect-tbody');
     if (!tbody) return;

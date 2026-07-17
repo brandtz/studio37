@@ -266,6 +266,17 @@
             </div>
             <p id="connect-link-status" style="font-size:.8125rem;margin:var(--space-2) 0 0;"></p>
           </div>
+          <div class="card" style="padding:var(--space-5);margin-bottom:var(--space-5);max-width:680px;">
+            <h3 style="margin:0 0 var(--space-2);font-size:1rem;">Sync products to Stripe</h3>
+            <p style="color:var(--color-text-muted);font-size:.875rem;margin:0 0 var(--space-3);">
+              Pushes every non-archived, priced product from this site into Drew's connected Stripe
+              account as a real Product + Price. Lets him quickly find and charge for them from the
+              Stripe Dashboard app (or build Payment Links) during in-person sales. Safe to re-run —
+              it updates existing Stripe products instead of duplicating them.
+            </p>
+            <button type="button" id="connect-sync-products-btn" class="btn-admin-primary">Sync products to Stripe</button>
+            <p id="connect-sync-status" style="font-size:.8125rem;margin:var(--space-2) 0 0;"></p>
+          </div>
           <table class="admin-table">
             <thead>
               <tr>
