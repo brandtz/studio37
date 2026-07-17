@@ -19,7 +19,7 @@ export const AUDIT_LOG_STORE = 'audit_log';
 // Bump this whenever the seed data changes — triggers auto-migration on next cold start.
 const SEED_VERSION = 3;
 const SEED_VERSION_KEY = '_seed_version';
-const REVIEW_SEED_VERSION = 1;
+const REVIEW_SEED_VERSION = 2;
 const REVIEW_SEED_VERSION_KEY = '_review_seed_version';
 const USER_SEED_VERSION = 2;
 const USER_SEED_VERSION_KEY = '_user_seed_version';
@@ -203,12 +203,14 @@ export async function ensureReviewSeeded(force = false) {
   const store = reviewStore();
 
   if (!force) {
+    // Once seeded at the current version, never re-seed again — even if an
+    // admin has since deleted every review. Deletion is an intentional,
+    // permanent action; it must not be undone by a later request re-running
+    // the seed step (this previously resurrected the placeholder
+    // testimonials any time the store was emptied).
     const storedVersion = await store.get(REVIEW_SEED_VERSION_KEY, { type: 'json' }).catch(() => null);
     if (storedVersion?.v === REVIEW_SEED_VERSION) {
-      const existing = await store.list();
-      if (existing.blobs?.filter((b) => b.key !== REVIEW_SEED_VERSION_KEY).length) {
-        return { seeded: false, written: 0 };
-      }
+      return { seeded: false, written: 0 };
     }
   }
 

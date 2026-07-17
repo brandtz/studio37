@@ -40,6 +40,59 @@
     <!-- Populated by reviews.js -->
   </div>
 
+  <section class="section" style="max-width:640px;margin:0 auto;">
+    <div class="card" style="padding:var(--space-7);">
+      <h2 style="margin-top:0;">Leave a Review</h2>
+      <p style="color:var(--color-text-muted);">Share your experience working with Drew. Reviews are checked before they go live.</p>
+
+      <form id="review-form" novalidate style="display:flex;flex-direction:column;gap:var(--space-5);">
+        <p style="display:none;">
+          <label>Don't fill this out: <input name="bot-field" tabindex="-1" autocomplete="off" /></label>
+        </p>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label" for="review-name">Name *</label>
+            <input class="form-input" id="review-name" name="name" type="text" required maxlength="80" />
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="review-location">Location</label>
+            <input class="form-input" id="review-location" name="location" type="text" maxlength="120" placeholder="City, State" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label" for="review-project">Project</label>
+            <input class="form-input" id="review-project" name="project" type="text" maxlength="120" placeholder="e.g. Cutting Board, Custom Cabinetry" />
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="review-stars">Rating *</label>
+            <select class="form-select" id="review-stars" name="stars" required>
+              <option value="5">★★★★★ (5)</option>
+              <option value="4">★★★★☆ (4)</option>
+              <option value="3">★★★☆☆ (3)</option>
+              <option value="2">★★☆☆☆ (2)</option>
+              <option value="1">★☆☆☆☆ (1)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label class="form-label" for="review-text">Your review *</label>
+          <textarea class="form-textarea" id="review-text" name="text" required maxlength="2000" rows="5"></textarea>
+        </div>
+
+        <button type="submit" class="btn-primary">Submit Review</button>
+      </form>
+
+      <div id="review-form-success" hidden>
+        <h3>Thank you!</h3>
+        <p>Your review has been submitted and will appear on the site once it's been approved.</p>
+      </div>
+    </div>
+  </section>
+
   <section class="cta-banner">
     <h2>Ready to Start Your Project?</h2>
     <p>Tell me what you're building. I'll get back to you the same day.</p>

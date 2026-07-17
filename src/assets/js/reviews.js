@@ -1,58 +1,75 @@
 /* Studio 37 — Reviews page
- * Renders all reviews from the shared REVIEWS data into the grid.
- * To add new reviews, edit the REVIEWS array in home.js (single source of truth)
- * and also add them here. Both files share the same structure. */
-
-const ALL_REVIEWS = [
-  {
-    stars: 5,
-    text: 'Drew built us a custom entertainment center with sliding barn doors — the craftsmanship is unreal. Every detail was perfect and he finished ahead of schedule.',
-    name: 'Sarah M.',
-    location: 'Springfield, OR',
-    project: 'Custom Built-in Cabinetry',
-  },
-  {
-    stars: 5,
-    text: 'We ordered a set of Black Walnut cutting boards as wedding gifts and everyone was blown away. High-quality, beautiful grain, and shipped fast. Will absolutely order again.',
-    name: 'Jake & Tori R.',
-    location: 'Eugene, OR',
-    project: 'Black Walnut Cutting Boards',
-  },
-  {
-    stars: 5,
-    text: "Brought in a slab I've had for years and Drew flattened it perfectly. Turned it into a dining table top. The whole process was easy, communication was great, and the result is stunning.",
-    name: 'Chris D.',
-    location: 'Bend, OR',
-    project: 'Slab Flattening',
-  },
-  {
-    stars: 5,
-    text: 'Studio 37 built out our entire home office — floating shelves, a custom desk, and built-in cabinetry. Drew nailed the design on the first pass. Highly recommend.',
-    name: 'Melissa K.',
-    location: 'Corvallis, OR',
-    project: 'Home Office Build-out',
-  },
-];
+ * Renders published reviews from /api/reviews and handles the public
+ * "Leave a Review" submission form. Submitted reviews are always pending
+ * (published: false server-side) until an admin approves them. */
 
 (function () {
   const grid = document.getElementById('reviews-grid');
-  if (!grid) return;
-
   const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
 
+  function escape(s) {
+    return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
   function render(items) {
+    if (!grid) return;
+    if (!items.length) {
+      grid.innerHTML = `<p class="reviews-empty" style="grid-column:1/-1;text-align:center;color:var(--color-text-muted);padding:var(--space-8) 0;">No reviews yet — be the first to share your experience below.</p>`;
+      return;
+    }
     grid.innerHTML = items.map((r) => `
       <div class="review-card-full">
         <div class="review-stars" aria-label="${r.stars} out of 5 stars">${stars(r.stars)}</div>
-        <p class="review-text">${r.text}</p>
-        <p class="review-byline"><strong>${r.name}</strong> &mdash; ${r.location || ''}</p>
-        ${r.project ? `<p style="font-size:var(--text-xs);color:var(--color-accent);letter-spacing:0.08em;text-transform:uppercase;margin-top:var(--space-1);">${r.project}</p>` : ''}
+        <p class="review-text">${escape(r.text)}</p>
+        <p class="review-byline"><strong>${escape(r.name)}</strong> &mdash; ${escape(r.location || '')}</p>
+        ${r.project ? `<p style="font-size:var(--text-xs);color:var(--color-accent);letter-spacing:0.08em;text-transform:uppercase;margin-top:var(--space-1);">${escape(r.project)}</p>` : ''}
       </div>
     `).join('');
   }
 
-  fetch('/api/reviews')
-    .then((r) => (r.ok ? r.json() : Promise.reject()))
-    .then((items) => render(Array.isArray(items) && items.length ? items : ALL_REVIEWS))
-    .catch(() => render(ALL_REVIEWS));
+  if (grid) {
+    fetch('/api/reviews')
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((items) => render(Array.isArray(items) ? items : []))
+      .catch(() => render([]));
+  }
+
+  // ── Leave a Review form ────────────────────────────────
+  const form = document.getElementById('review-form');
+  if (!form) return;
+  const success = document.getElementById('review-form-success');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (form.querySelector('[name="bot-field"]')?.value) return; // honeypot
+    if (!form.reportValidity()) return;
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Sending…';
+
+    const body = {
+      name: form.querySelector('#review-name').value,
+      location: form.querySelector('#review-location').value,
+      project: form.querySelector('#review-project').value,
+      stars: form.querySelector('#review-stars').value,
+      text: form.querySelector('#review-text').value,
+    };
+
+    try {
+      const r = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      form.hidden = true;
+      if (success) success.hidden = false;
+    } catch (err) {
+      console.error('Review submission failed', err);
+      alert('Something went wrong sending your review. Please try again in a moment.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Review';
+    }
+  });
 }());

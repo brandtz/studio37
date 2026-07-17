@@ -3,37 +3,10 @@
  * and drives the customer reviews carousel. */
 
 // ── REVIEWS CAROUSEL ──────────────────────────────────────────────────────────
-// Update REVIEWS array with real customer testimonials.
-const REVIEWS = [
-  {
-    stars: 5,
-    text: 'Drew built us a custom entertainment center with sliding barn doors — the craftsmanship is unreal. Every detail was perfect and he finished ahead of schedule.',
-    name: 'Sarah M.',
-    location: 'Springfield, OR',
-  },
-  {
-    stars: 5,
-    text: 'We ordered a set of Black Walnut cutting boards as wedding gifts and everyone was blown away. High-quality, beautiful grain, and shipped fast. Will absolutely order again.',
-    name: 'Jake & Tori R.',
-    location: 'Eugene, OR',
-  },
-  {
-    stars: 5,
-    text: 'Brought in a slab I\'ve had for years and Drew flattened it perfectly. Turned it into a dining table top. The whole process was easy, communication was great, and the result is stunning.',
-    name: 'Chris D.',
-    location: 'Bend, OR',
-  },
-  {
-    stars: 5,
-    text: 'Studio 37 built out our entire home office — floating shelves, a custom desk, and built-in cabinetry. Drew nailed the design on the first pass. Highly recommend.',
-    name: 'Melissa K.',
-    location: 'Corvallis, OR',
-  },
-];
-
 (function mountReviews() {
   const carousel = document.getElementById('reviews-carousel');
   const dotsEl   = document.getElementById('reviews-dots');
+  const section  = document.getElementById('reviews-section');
   if (!carousel) return;
 
   let current = 0;
@@ -87,8 +60,13 @@ const REVIEWS = [
 
   fetch('/api/reviews')
     .then((r) => (r.ok ? r.json() : Promise.reject()))
-    .then((items) => mount(Array.isArray(items) && items.length ? items : REVIEWS))
-    .catch(() => mount(REVIEWS));
+    .then((items) => {
+      if (Array.isArray(items) && items.length) { mount(items); return; }
+      // No published reviews yet — hide the whole section rather than show
+      // placeholder/fake testimonials.
+      if (section) section.hidden = true;
+    })
+    .catch(() => { if (section) section.hidden = true; });
 }());
 
 // ── FEATURED SHOP STRIP ───────────────────────────────────────────────────────
