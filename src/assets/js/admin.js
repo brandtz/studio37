@@ -1480,7 +1480,28 @@
         const settingsNav = document.querySelector('[data-nav-settings]');
         if (settingsNav) settingsNav.hidden = !(me.role === 'super' || me.role === 'admin');
       }
-      setSection('products');
+      // Stripe's account-onboarding link redirects back to `refresh_url` when the
+      // link it sent the user to has expired or was already used. Detect that
+      // here and immediately mint + follow a fresh link instead of leaving the
+      // user stuck on a dead-end page.
+      const hash = window.location.hash || '';
+      const hashParams = new URLSearchParams(hash.split('?')[1] || '');
+      if (hash.startsWith('#connect') && hashParams.get('refresh') === '1') {
+        setSection('connect');
+        try {
+          const res = await api('/api/admin/stripe-connect/onboard', {
+            method: 'POST',
+            body: JSON.stringify({ tenantId: 'studio37' }),
+          });
+          if (res?.url) { window.location.href = res.url; return; }
+        } catch (err) {
+          toast('Could not refresh the Stripe onboarding link: ' + (err.message || ''), true);
+        }
+      } else if (hash.startsWith('#connect')) {
+        setSection('connect');
+      } else {
+        setSection('products');
+      }
       // Preload categories so the product editor dropdown is populated
       loadCategories().catch(() => {});
     } catch {
