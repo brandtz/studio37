@@ -16,6 +16,10 @@
 /api/admin/orders             /.netlify/functions/admin-orders             200
 /api/admin/stripe-connect/:action  /.netlify/functions/admin-stripe-connect?action=:action  200
 /api/admin/stripe-connect     /.netlify/functions/admin-stripe-connect     200
+
+# Public, unauthenticated Stripe onboarding refresh/return (merchant-facing).
+/stripe/onboarding-refresh    /.netlify/functions/stripe-connect-refresh   302!
+/stripe/onboarding-complete   /stripe/onboarding-complete.html             200
 /api/reviews              /.netlify/functions/reviews              200
 /api/admin/reviews/*      /.netlify/functions/admin-reviews?id=:splat 200
 /api/admin/reviews        /.netlify/functions/admin-reviews        200

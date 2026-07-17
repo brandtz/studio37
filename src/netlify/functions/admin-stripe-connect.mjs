@@ -97,10 +97,13 @@ export default async (req) => {
       }
 
       const baseUrl = process.env.SITE_URL || `${url.protocol}//${url.host}`;
+      // Refresh/return URLs must be public — Drew (the merchant completing this
+      // form) is not an admin user of this site and must never be bounced to
+      // our staff login. See stripe-connect-refresh.mjs.
       const link = await stripe().accountLinks.create({
         account: acctId,
-        refresh_url: `${baseUrl}/admin#connect?refresh=1`,
-        return_url: `${baseUrl}/admin#connect?return=1`,
+        refresh_url: `${baseUrl}/stripe/onboarding-refresh`,
+        return_url: `${baseUrl}/stripe/onboarding-complete`,
         type: 'account_onboarding',
       });
       return json({ url: link.url, account: acctId });
@@ -120,8 +123,8 @@ export default async (req) => {
       const baseUrl = process.env.SITE_URL || `${url.protocol}//${url.host}`;
       const link = await stripe().accountLinks.create({
         account: tenant.value.stripe_account_id,
-        refresh_url: `${baseUrl}/admin#connect?refresh=1`,
-        return_url: `${baseUrl}/admin#connect?return=1`,
+        refresh_url: `${baseUrl}/stripe/onboarding-refresh`,
+        return_url: `${baseUrl}/stripe/onboarding-complete`,
         type: 'account_onboarding',
       });
       return json({ url: link.url, note: 'For Standard accounts, daily logins happen at dashboard.stripe.com' });

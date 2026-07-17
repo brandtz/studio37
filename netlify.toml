@@ -69,6 +69,19 @@
   to = "/.netlify/functions/admin-stripe-connect?action=:action"
   status = 200
 
+# Public, unauthenticated Stripe onboarding refresh/return — Drew (the merchant)
+# is not an admin user of this site and must never be bounced to /admin.
+[[redirects]]
+  from = "/stripe/onboarding-refresh"
+  to = "/.netlify/functions/stripe-connect-refresh"
+  status = 302
+  force = true
+
+[[redirects]]
+  from = "/stripe/onboarding-complete"
+  to = "/stripe/onboarding-complete.html"
+  status = 200
+
 [[redirects]]
   from = "/api/seed-products"
   to = "/.netlify/functions/seed-products"
