@@ -5,6 +5,7 @@
 import { leadStore, json, nowIso } from './_lib/store.mjs';
 import { checkRateLimit, clientIp } from './_lib/rate-limit.mjs';
 import { sendLeadNotification, sendLeadAcknowledgement } from './_lib/email.mjs';
+import { r2Configured, uploadBufferToR2 } from './_lib/r2.mjs';
 import twilio from 'twilio';
 
 const SERVICE_LABEL = {
@@ -30,6 +31,15 @@ const MAX_DESCRIPTION = 5000;
 const MAX_NAME = 80;
 const MAX_FIELD = 160;
 
+const MAX_PHOTOS = 3;
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+const PHOTO_MIME_EXT = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+
 export default async (req) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
@@ -47,10 +57,15 @@ export default async (req) => {
 
   const ct = req.headers.get('content-type') || '';
   let fields = {};
+  let photoFiles = [];
   if (ct.startsWith('multipart/form-data') || ct.startsWith('application/x-www-form-urlencoded')) {
     const fd = await req.formData();
     for (const [k, v] of fd.entries()) {
-      if (typeof v === 'string') fields[k] = v;
+      if (typeof v === 'string') {
+        fields[k] = v;
+      } else if (k === 'photos' && v && typeof v.arrayBuffer === 'function' && v.size > 0) {
+        photoFiles.push(v);
+      }
     }
   } else if (ct.includes('application/json')) {
     fields = await req.json().catch(() => ({}));
@@ -62,6 +77,13 @@ export default async (req) => {
   const required = ['firstName', 'lastName', 'email', 'phone', 'service', 'description'];
   for (const f of required) {
     if (!fields[f]) return json({ error: `missing field: ${f}` }, 400);
+  }
+
+  // Validate reference photos server-side (client limits are cosmetic only).
+  if (photoFiles.length > MAX_PHOTOS) return json({ error: 'too_many_photos' }, 400);
+  for (const f of photoFiles) {
+    if (f.size > MAX_PHOTO_BYTES) return json({ error: 'photo_too_large' }, 400);
+    if (!PHOTO_MIME_EXT[f.type]) return json({ error: 'invalid_photo_type' }, 400);
   }
 
   // Validation
@@ -95,7 +117,28 @@ export default async (req) => {
     budget: trim(fields.budget, 40),
     contactMethod: trim(fields.contactMethod, 40),
     referral: trim(fields.referral, 40),
+    photos: [],
   };
+
+  // Upload reference photos to R2 (best-effort per file — one bad upload shouldn't drop the lead).
+  if (photoFiles.length) {
+    if (r2Configured()) {
+      for (let i = 0; i < photoFiles.length; i++) {
+        try {
+          const file = photoFiles[i];
+          const ext = PHOTO_MIME_EXT[file.type];
+          const key = `leads/${lead.id}/${i}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const buf = Buffer.from(await file.arrayBuffer());
+          const url = await uploadBufferToR2(buf, key, file.type);
+          lead.photos.push(url);
+        } catch (e) {
+          console.error('lead photo upload failed', e);
+        }
+      }
+    } else {
+      console.warn('R2 not configured — skipping lead photo upload');
+    }
+  }
 
   // Persist
   try {

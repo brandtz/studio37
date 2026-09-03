@@ -5,6 +5,16 @@
   const success = document.getElementById('form-success');
   const successName = document.getElementById('success-name');
 
+  const QUOTE_ERROR_MESSAGES = {
+    too_many_photos: 'Please attach up to 3 reference photos.',
+    photo_too_large: 'Each reference photo must be 10 MB or smaller.',
+    invalid_photo_type: 'Reference photos must be JPG, PNG, WEBP, or GIF images.',
+    invalid_email: 'Please enter a valid email address.',
+    invalid_phone: 'Please enter a valid phone number.',
+    too_many_requests: 'Please give us a chance to respond before sending more requests.',
+  };
+  const QUOTE_ERROR_MESSAGE_VALUES = new Set(Object.values(QUOTE_ERROR_MESSAGES));
+
   // Prefill service from query string (?service=cabinetry, etc.)
   const params = new URLSearchParams(location.search);
   const serviceParam = params.get('service');
@@ -77,7 +87,10 @@
         method: 'POST',
         body: fd,
       });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error(QUOTE_ERROR_MESSAGES[body.error] || body.message || ('HTTP ' + r.status));
+      }
 
       successName.textContent = (fd.get('firstName') || 'friend').toString();
       form.hidden = true;
@@ -85,7 +98,9 @@
       window.scrollTo({ top: success.offsetTop - 100, behavior: 'smooth' });
     } catch (err) {
       console.error('Quote submission failed', err);
-      alert('Something went wrong sending your request. Please email Drew@studio37customdesigns.com or try again in a moment.');
+      alert(err.message && QUOTE_ERROR_MESSAGE_VALUES.has(err.message)
+        ? err.message
+        : 'Something went wrong sending your request. Please email Drew@studio37customdesigns.com or try again in a moment.');
       submitBtn.disabled = false;
       submitBtn.textContent = 'Send My Request →';
     }

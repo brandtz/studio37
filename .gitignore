@@ -25,5 +25,8 @@ npm-debug.log*
 # Raw scrape archive — large originals, not needed in git
 _archive/
 
+# Scratch/working files (raw photos, exports, drafts) — not part of the site
+temp/
+
 # Design handoff duplicate assets — originals live in src/assets/images/
 docs/design_handoff/assets/

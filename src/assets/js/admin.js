@@ -150,6 +150,7 @@
     { id: 'category-drawer', fn: () => closeCategoryDrawer?.() },
     { id: 'slot-drawer',     fn: () => closeSlotDrawer?.() },
     { id: 'order-drawer',    fn: () => closeOrderDrawer?.() },
+    { id: 'lead-drawer',     fn: () => closeLeadDrawer?.() },
     { id: 'pwd-drawer',      fn: () => closePwdDrawer?.() },
   ];
   document.addEventListener('keydown', (e) => {
@@ -695,28 +696,124 @@
   });
 
   // ── leads ──────────────────────────────────────────────
+  const LEAD_SERVICE_LABEL = {
+    cabinetry: 'Custom Cabinetry',
+    slab: 'Slab Flattening',
+    'cnc-laser': 'CNC & Laser Engraving',
+    furniture: 'Custom Furniture',
+    'small-goods': 'Small Goods / Gifts',
+    gc: 'GC Work',
+    other: 'Other',
+  };
+  const LEAD_BUDGET_LABEL = {
+    'under-500': 'Under $500',
+    '500-2000': '$500 – $2,000',
+    '2000-5000': '$2,000 – $5,000',
+    '5000-plus': '$5,000+',
+    'not-sure': 'Not sure yet',
+  };
+  const LEAD_CONTACT_METHOD_LABEL = { phone: 'Phone Call', text: 'Text Message', email: 'Email' };
+  const LEAD_REFERRAL_LABEL = {
+    google: 'Google',
+    instagram: 'Instagram',
+    pinterest: 'Pinterest',
+    referral: 'Referral',
+    other: 'Other',
+  };
+
+  let allLeads = [];
+
   async function loadLeads() {
     try {
       const leads = await api('/api/admin/leads');
+      allLeads = Array.isArray(leads) ? leads : [];
       const tbody = $('#leads-tbody');
-      if (!Array.isArray(leads) || !leads.length) {
+      if (!allLeads.length) {
         tbody.innerHTML = `<tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">No leads yet.</td></tr>`;
         return;
       }
-      tbody.innerHTML = leads.map((l) => `
-        <tr>
+      tbody.innerHTML = allLeads.map((l) => `
+        <tr data-lead-id="${escapeHtml(l.id)}" style="cursor:pointer;">
           <td>${new Date(l.created_at).toLocaleString()}</td>
           <td>${escapeHtml([l.firstName, l.lastName].filter(Boolean).join(' ') || '—')}</td>
-          <td>${escapeHtml(l.service || '—')}</td>
-          <td>${l.phone ? `<a href="tel:${escapeHtml(l.phone)}" style="color:var(--color-accent);">${escapeHtml(l.phone)}</a>` : '—'}</td>
-          <td>${l.email ? `<a href="mailto:${escapeHtml(l.email)}" style="color:var(--color-accent);">${escapeHtml(l.email)}</a>` : '—'}</td>
+          <td>${escapeHtml(LEAD_SERVICE_LABEL[l.service] || l.service || '—')}</td>
+          <td>${l.phone ? `<a href="tel:${escapeHtml(l.phone)}" style="color:var(--color-accent);" onclick="event.stopPropagation()">${escapeHtml(l.phone)}</a>` : '—'}</td>
+          <td>${l.email ? `<a href="mailto:${escapeHtml(l.email)}" style="color:var(--color-accent);" onclick="event.stopPropagation()">${escapeHtml(l.email)}</a>` : '—'}</td>
         </tr>
       `).join('');
+      tbody.querySelectorAll('tr[data-lead-id]').forEach((row) => {
+        row.addEventListener('click', () => {
+          const lead = allLeads.find((x) => x.id === row.dataset.leadId);
+          if (lead) openLeadDrawer(lead);
+        });
+      });
     } catch (err) {
       console.error(err);
       $('#leads-tbody').innerHTML = `<tr><td colspan="5" style="padding:var(--space-7);text-align:center;color:var(--color-text-muted);">Could not load leads.</td></tr>`;
     }
   }
+
+  // ── lead detail drawer ─────────────────────────────────
+  const leadDrawer = $('#lead-drawer');
+  const leadDrawerOverlay = $('#lead-drawer-overlay');
+
+  function openLeadDrawer(lead) {
+    $('#lead-drawer-title').textContent = [lead.firstName, lead.lastName].filter(Boolean).join(' ') || 'Lead Detail';
+
+    const photos = Array.isArray(lead.photos) ? lead.photos.filter(Boolean) : [];
+    const photosHtml = photos.length
+      ? `<div class="image-thumbs image-thumbs-lg">${photos.map((url) => `
+          <a class="thumb" href="${escapeHtml(url)}" target="_blank" rel="noopener">
+            <img src="${escapeHtml(url)}" alt="Reference photo" loading="lazy" />
+          </a>
+        `).join('')}</div>`
+      : '<em>No reference photos.</em>';
+
+    $('#lead-drawer-body').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5);font-size:.9rem;">
+        <div>
+          <div style="color:var(--color-text-muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;">Contact</div>
+          <div><strong>${escapeHtml([lead.firstName, lead.lastName].filter(Boolean).join(' ') || '—')}</strong></div>
+          <div>${lead.email ? `<a href="mailto:${escapeHtml(lead.email)}" style="color:var(--color-accent);">${escapeHtml(lead.email)}</a>` : '—'}</div>
+          <div>${lead.phone ? `<a href="tel:${escapeHtml(lead.phone)}" style="color:var(--color-accent);">${escapeHtml(lead.phone)}</a>` : '—'}</div>
+          <div style="color:var(--color-text-muted);margin-top:var(--space-2);">Prefers: ${escapeHtml(LEAD_CONTACT_METHOD_LABEL[lead.contactMethod] || lead.contactMethod || '—')}</div>
+        </div>
+        <div>
+          <div style="color:var(--color-text-muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;">Project</div>
+          <div>${escapeHtml(LEAD_SERVICE_LABEL[lead.service] || lead.service || '—')}</div>
+          <div>${escapeHtml(lead.location || '—')}</div>
+          <div>${escapeHtml(lead.budget ? (LEAD_BUDGET_LABEL[lead.budget] || lead.budget) : '—')}</div>
+          <div style="color:var(--color-text-muted);margin-top:var(--space-2);">Heard about us: ${escapeHtml(LEAD_REFERRAL_LABEL[lead.referral] || lead.referral || '—')}</div>
+        </div>
+      </div>
+      <div style="margin-top:var(--space-5);">
+        <div style="color:var(--color-text-muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;">Description</div>
+        <p style="white-space:pre-wrap;margin-top:var(--space-2);">${escapeHtml(lead.description || '—')}</p>
+      </div>
+      <div style="margin-top:var(--space-5);">
+        <div style="color:var(--color-text-muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;">Reference photos</div>
+        <div style="margin-top:var(--space-2);">${photosHtml}</div>
+      </div>
+      <div style="margin-top:var(--space-5);color:var(--color-text-muted);font-size:.8rem;">
+        Submitted ${lead.created_at ? new Date(lead.created_at).toLocaleString() : '—'}
+      </div>
+    `;
+
+    leadDrawer.classList.add('open');
+    leadDrawerOverlay.classList.add('open');
+    leadDrawer.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeLeadDrawer() {
+    leadDrawer.classList.remove('open');
+    leadDrawerOverlay.classList.remove('open');
+    leadDrawer.setAttribute('aria-hidden', 'true');
+  }
+
+  $('#lead-drawer-close')?.addEventListener('click', closeLeadDrawer);
+  $('#lead-drawer-cancel')?.addEventListener('click', closeLeadDrawer);
+  leadDrawerOverlay?.addEventListener('click', closeLeadDrawer);
+
 
   // ── orders ─────────────────────────────────────────────
   const LIFECYCLE_LABEL = {
