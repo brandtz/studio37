@@ -696,15 +696,7 @@
   });
 
   // ── leads ──────────────────────────────────────────────
-  const LEAD_SERVICE_LABEL = {
-    cabinetry: 'Custom Cabinetry',
-    slab: 'Slab Flattening',
-    'cnc-laser': 'CNC & Laser Engraving',
-    furniture: 'Custom Furniture',
-    'small-goods': 'Small Goods / Gifts',
-    gc: 'GC Work',
-    other: 'Other',
-  };
+  const { serviceLabels: LEAD_SERVICE_LABEL, customerTypes: LEAD_CUSTOMER_TYPE } = window.Studio37QuoteOptions;
   const LEAD_BUDGET_LABEL = {
     'under-500': 'Under $500',
     '500-2000': '$500 – $2,000',
@@ -782,6 +774,9 @@
           <div style="color:var(--color-text-muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;">Project</div>
           <div>${escapeHtml(LEAD_SERVICE_LABEL[lead.service] || lead.service || '—')}</div>
           <div>${escapeHtml(lead.location || '—')}</div>
+          <div>Customer type: ${escapeHtml(LEAD_CUSTOMER_TYPE[lead.customerType] || lead.customerType || '—')}</div>
+          <div>Deadline: ${escapeHtml(lead.hasDeadline === 'yes' ? `Yes, by ${lead.deadlineDate || '—'}` : lead.hasDeadline === 'no' ? 'No' : '—')}</div>
+          <div>Engraving add-on: ${lead.engravingAddon === true ? 'Yes' : lead.engravingAddon === false ? 'No' : '—'}</div>
           <div>${escapeHtml(lead.budget ? (LEAD_BUDGET_LABEL[lead.budget] || lead.budget) : '—')}</div>
           <div style="color:var(--color-text-muted);margin-top:var(--space-2);">Heard about us: ${escapeHtml(LEAD_REFERRAL_LABEL[lead.referral] || lead.referral || '—')}</div>
         </div>

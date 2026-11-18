@@ -6,17 +6,11 @@ import { leadStore, json, nowIso } from './_lib/store.mjs';
 import { checkRateLimit, clientIp } from './_lib/rate-limit.mjs';
 import { sendLeadNotification, sendLeadAcknowledgement } from './_lib/email.mjs';
 import { r2Configured, uploadBufferToR2 } from './_lib/r2.mjs';
+import quoteOptions from '../../assets/js/quote-options.js';
 import twilio from 'twilio';
 
-const SERVICE_LABEL = {
-  cabinetry: 'Cabinetry',
-  slab: 'Slab Flattening',
-  'cnc-laser': 'CNC & Laser Engraving',
-  furniture: 'Custom Furniture',
-  'small-goods': 'Small Goods',
-  gc: 'GC Work',
-  other: 'Other',
-};
+const { serviceGroups, serviceLabels, customerTypes, homeGoods } = quoteOptions;
+const allowedServices = new Set(['other', ...serviceGroups.flatMap((group) => group.options.map(([value]) => value))]);
 
 const BUDGET_LABEL = {
   'under-500': 'Under $500',
@@ -74,10 +68,28 @@ export default async (req) => {
   // Honeypot — silently accept
   if (fields['bot-field']) return json({ ok: true });
 
-  const required = ['firstName', 'lastName', 'email', 'phone', 'service', 'description'];
+  const required = ['firstName', 'lastName', 'email', 'phone', 'customerType', 'city', 'state', 'hasDeadline', 'service', 'description'];
   for (const f of required) {
-    if (!fields[f]) return json({ error: `missing field: ${f}` }, 400);
+    if (typeof fields[f] !== 'string' || !fields[f].trim()) return json({ error: `missing field: ${f}` }, 400);
   }
+
+  const customerType = fields.customerType.trim();
+  const state = fields.state.trim().toUpperCase();
+  const service = fields.service.trim();
+  const hasDeadline = fields.hasDeadline.trim();
+  if (!Object.hasOwn(customerTypes, customerType)) return json({ error: 'invalid_customer_type' }, 400);
+  if (!/^[A-Z]{2}$/.test(state)) return json({ error: 'invalid_state' }, 400);
+  if (!allowedServices.has(service)) return json({ error: 'invalid_service' }, 400);
+  if (hasDeadline !== 'yes' && hasDeadline !== 'no') return json({ error: 'invalid_deadline' }, 400);
+  const deadlineDate = hasDeadline === 'yes' ? String(fields.deadlineDate || '').trim() : '';
+  if (hasDeadline === 'yes') {
+    const date = new Date(`${deadlineDate}T00:00:00Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(deadlineDate) || Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== deadlineDate) {
+      return json({ error: 'invalid_deadline' }, 400);
+    }
+  }
+  const engravingAddon = fields.engravingAddon === 'yes' || fields.engravingAddon === true;
+  if (engravingAddon && !homeGoods.includes(service)) return json({ error: 'invalid_engraving' }, 400);
 
   // Validate reference photos server-side (client limits are cosmetic only).
   if (photoFiles.length > MAX_PHOTOS) return json({ error: 'too_many_photos' }, 400);
@@ -103,7 +115,8 @@ export default async (req) => {
     );
   }
 
-  const trim = (s, max) => String(s || '').slice(0, max);
+  const trim = (s, max) => String(s || '').trim().slice(0, max);
+  const city = trim(fields.city, MAX_FIELD);
   const lead = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     created_at: nowIso(),
@@ -111,16 +124,21 @@ export default async (req) => {
     lastName: trim(fields.lastName, MAX_NAME),
     email,
     phone: trim(fields.phone, 32),
-    service: trim(fields.service, 40),
+    service,
     description: trim(fields.description, MAX_DESCRIPTION),
-    location: trim(fields.location, MAX_FIELD),
+    customerType,
+    city,
+    state,
+    location: `${city}, ${state}`,
+    hasDeadline,
+    deadlineDate,
+    engravingAddon,
     budget: trim(fields.budget, 40),
     contactMethod: trim(fields.contactMethod, 40),
     referral: trim(fields.referral, 40),
     photos: [],
   };
 
-  // Upload reference photos to R2 (best-effort per file — one bad upload shouldn't drop the lead).
   if (photoFiles.length) {
     if (r2Configured()) {
       for (let i = 0; i < photoFiles.length; i++) {
@@ -133,10 +151,12 @@ export default async (req) => {
           lead.photos.push(url);
         } catch (e) {
           console.error('lead photo upload failed', e);
+          return json({ error: 'photo_upload_failed' }, 503);
         }
       }
     } else {
-      console.warn('R2 not configured — skipping lead photo upload');
+      console.error('R2 not configured — cannot upload lead photos');
+      return json({ error: 'photo_upload_failed' }, 503);
     }
   }
 
@@ -145,12 +165,17 @@ export default async (req) => {
     await leadStore().setJSON(lead.id, lead);
   } catch (e) {
     console.error('lead persist failed', e);
+    return json({ error: 'lead_save_failed' }, 503);
   }
 
   // Pre-resolve human labels once and share with both email helpers + SMS.
   const labels = {
-    service: SERVICE_LABEL[lead.service] || lead.service,
+    service: serviceLabels[lead.service] || lead.service,
     budget: lead.budget ? (BUDGET_LABEL[lead.budget] || lead.budget) : '',
+    customerType: customerTypes[lead.customerType],
+    deadline: lead.hasDeadline === 'yes'
+      ? `Yes, by ${new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${lead.deadlineDate}T00:00:00Z`))}`
+      : 'No',
   };
 
   // Email Drew (best-effort — don't fail the request if Resend errors).
@@ -176,8 +201,11 @@ export default async (req) => {
         `📋 New Studio 37 Quote Request`,
         `From: ${lead.firstName} ${lead.lastName} (${lead.phone})`,
         `Service: ${labels.service}`,
+        `Customer: ${labels.customerType}`,
         labels.budget ? `Budget: ${labels.budget}` : null,
         lead.location ? `Location: ${lead.location}` : null,
+        `Deadline: ${labels.deadline}`,
+        `Engraving: ${lead.engravingAddon ? 'Yes' : 'No'}`,
         `"${lead.description.slice(0, 240)}${lead.description.length > 240 ? '…' : ''}"`,
         `Reply to: ${lead.email}`,
       ].filter(Boolean).join('\n');

@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#1a1714" />
-<title>Get a Quote &mdash; Studio 37 Custom Designs</title>
+<title>Request for Quote &mdash; Studio 37 Custom Designs</title>
   <meta name="description" content="Tell me about your project. Expect an initial response in approximately 3–5 business days." />
   <link rel="canonical" href="https://studio37customdesigns.com/contact" />
-  <meta property="og:title" content="Get a Quote — Studio 37 Custom Designs" />
+  <meta property="og:title" content="Request for Quote — Studio 37 Custom Designs" />
   <meta property="og:description" content="Tell me about your project. Expect an initial response in approximately 3–5 business days." />
   <meta property="og:image" content="/assets/images/og-image.jpg" />
   <meta property="og:type" content="website" />
@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="/assets/css/site.css" />
   <script defer src="/assets/js/site.js"></script>
   <script defer src="/assets/js/cart.js"></script>
+  <script defer src="/assets/js/quote-options.js"></script>
   <script defer src="/assets/js/contact.js"></script>
 </head>
 <body class="grain">
@@ -31,8 +32,8 @@
     <div class="hero-gradient"></div>
     <div class="hero-content">
       <p class="hero-eyebrow">Studio 37</p>
-      <h1 class="hero-title">Let's Build Something</h1>
-      <p class="hero-sub">Tell me about your project. Expect an initial response in approximately 3–5 business days.</p>
+      <h1 class="hero-title">Request for Quote | Initial Intake Details</h1>
+      <p class="hero-sub"><strong>Please Note:</strong> Due to the current backlog and volume of time sensitive orders underway the initial response is approximately 3-5 business days. Thank you for your understanding. We look forward to talking with you soon.</p>
     </div>
   </section>
 
@@ -53,6 +54,8 @@
         <label>Don't fill this out: <input name="bot-field" /></label>
       </p>
 
+      <fieldset class="quote-fieldset">
+      <legend class="form-label">Primary Contact</legend>
       <div class="form-row">
         <div class="form-field">
           <label class="form-label" for="firstName">First name</label>
@@ -66,39 +69,70 @@
 
       <div class="form-row">
         <div class="form-field">
+          <label class="form-label" for="phone">Phone Number</label>
+          <input class="form-input" id="phone" name="phone" type="tel" required autocomplete="tel" />
+        </div>
+        <div class="form-field">
           <label class="form-label" for="email">Email</label>
           <input class="form-input" id="email" name="email" type="email" required autocomplete="email" />
         </div>
-        <div class="form-field">
-          <label class="form-label" for="phone">Phone</label>
-          <input class="form-input" id="phone" name="phone" type="tel" required autocomplete="tel" />
-        </div>
       </div>
+      </fieldset>
 
       <div class="form-field">
-        <label class="form-label" for="service">Service type</label>
-        <select class="form-select" id="service" name="service" required>
-          <option value="">Select a service&hellip;</option>
-          <option value="cabinetry">Custom Cabinetry</option>
-          <option value="slab">Slab Flattening</option>
-          <option value="cnc-laser">CNC &amp; Laser Engraving</option>
-          <option value="furniture">Custom Furniture</option>
-          <option value="small-goods">Small Goods / Gifts</option>
-          <option value="other">Other</option>
+        <label class="form-label" for="customerType">Customer Type</label>
+        <select class="form-select" id="customerType" name="customerType" required>
+          <option value="">Select customer type&hellip;</option>
         </select>
       </div>
 
+      <fieldset class="quote-fieldset">
+        <legend class="form-label">Delivery &amp; Install Location</legend>
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label" for="city">City</label>
+            <input class="form-input" id="city" name="city" type="text" required autocomplete="address-level2" />
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="state">State</label>
+            <input class="form-input" id="state" name="state" type="text" value="OR" pattern="[A-Za-z]{2}" maxlength="2" required autocomplete="address-level1" title="Enter a two-letter state abbreviation." />
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="quote-fieldset form-field">
+        <legend class="form-label">Is there a specific deadline?</legend>
+        <div class="pill-group">
+          <label class="pill-radio"><input type="radio" name="hasDeadline" value="yes" required /><span>Yes</span></label>
+          <label class="pill-radio"><input type="radio" name="hasDeadline" value="no" required /><span>No</span></label>
+        </div>
+        <div class="form-field" id="deadline-field" hidden>
+          <label class="form-label" for="deadlineDate">If yes, deadline date:</label>
+          <input class="form-input" id="deadlineDate" name="deadlineDate" type="date" disabled />
+        </div>
+      </fieldset>
+
+      <p class="quote-notice"><strong>Please Note:</strong> Due to current demand Studio 37 currently has a 3-4 month backlog of orders with the exception being monthly recurring orders for established repeat customers. We're happy to discuss time sensitive orders and potential options for consideration.</p>
+
       <div class="form-field">
-        <label class="form-label" for="description">Project description</label>
+        <label class="form-label" for="service">Select Desired Service Offerings</label>
+        <p class="quote-notice"><strong>Please Note:</strong> Studio 37 provides Custom Deliveries and Installations within Lane County. Any locations outside of this would need to be discussed in advance.</p>
+        <select class="form-select" id="service" name="service" required>
+          <option value="">Select a service&hellip;</option>
+        </select>
+      </div>
+      <div class="form-field" id="engraving-field" hidden>
+        <label><input type="checkbox" name="engravingAddon" value="yes" disabled /> Custom Add-on: Logo or Name Engraving for Handcrafted Home Goods &amp; Gifts</label>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="description">Order Details</label>
+        <p class="quote-helper" id="description-help">Please include any helpful details if known. Examples include any estimated measurements, specifications, and preferences, including species of wood.</p>
         <textarea class="form-textarea" id="description" name="description" required
-          placeholder="Describe your project — dimensions, materials, timeline, anything that will help me understand your vision."></textarea>
+          aria-describedby="description-help"></textarea>
       </div>
 
       <div class="form-row">
-        <div class="form-field">
-          <label class="form-label" for="location">Project location</label>
-          <input class="form-input" id="location" name="location" type="text" placeholder="City or region" />
-        </div>
         <div class="form-field">
           <label class="form-label" for="budget">Estimated budget</label>
           <select class="form-select" id="budget" name="budget">
@@ -134,7 +168,7 @@
       </div>
 
       <div class="form-field">
-        <span class="form-label">Reference photos (optional)</span>
+        <span class="form-label">Optional: Attach picture of installation location or space being considered.</span>
         <label class="upload-zone" id="upload-zone">
           <input type="file" name="photos" id="photos" accept="image/*" multiple style="display:none;" />
           <span>Click to upload, or drag &amp; drop &mdash; up to 3 images, 10&nbsp;MB each</span>

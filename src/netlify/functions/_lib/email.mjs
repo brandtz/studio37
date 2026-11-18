@@ -216,8 +216,11 @@ export async function sendLeadNotification(lead, labels = {}) {
     ['Email', lead?.email || ''],
     ['Phone', phone],
     ['Service', service],
+    ['Customer type', labels.customerType || ''],
     ['Budget', budget],
     ['Location', location],
+    ['Deadline', labels.deadline || ''],
+    ['Engraving add-on', lead?.engravingAddon ? 'Yes' : ''],
     ['Contact preference', contactPref],
     ['Heard about us', referral],
   ].filter(([, v]) => v);
@@ -225,6 +228,8 @@ export async function sendLeadNotification(lead, labels = {}) {
   const rowsHtml = rows.map(([k, v]) =>
     `<tr><td style="padding:6px 12px 6px 0;color:#6e6055;white-space:nowrap;">${escapeHtml(k)}</td><td style="padding:6px 0;color:#3a322a;">${escapeHtml(v)}</td></tr>`,
   ).join('');
+  const photos = Array.isArray(lead?.photos) ? lead.photos : [];
+  const photosHtml = photos.map((url, i) => `<li><a href="${escapeHtml(url)}">Reference photo ${i + 1}</a></li>`).join('');
 
   const html = `<!doctype html>
 <html><body style="margin:0;padding:0;background:#f5efe4;font-family:Georgia,'Times New Roman',serif;color:#3a322a;">
@@ -242,6 +247,7 @@ export async function sendLeadNotification(lead, labels = {}) {
         <tr><td style="padding:8px 32px 24px;">
           <h3 style="margin:16px 0 8px;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#9a8b73;font-weight:normal;">Project description</h3>
           <div style="padding:14px 16px;background:#f5efe4;border-left:3px solid #9a6a3a;font-size:15px;line-height:1.55;white-space:pre-wrap;">${escapeHtml(desc)}</div>
+          ${photosHtml ? `<h3>Reference photos</h3><ul>${photosHtml}</ul>` : ''}
         </td></tr>
         <tr><td style="padding:0 32px 24px;">
           <p style="margin:0;font-size:13px;color:#6e6055;">Reply to this email to respond to ${escapeHtml(lead?.email || 'the customer')} directly, or view the full lead in the admin dashboard.</p>
@@ -260,6 +266,7 @@ export async function sendLeadNotification(lead, labels = {}) {
     'Project description:',
     desc,
     '',
+    ...photos.map((url, i) => `Reference photo ${i + 1}: ${url}`),
     `Reply to this email to respond to ${lead?.email || 'the customer'} directly.`,
     `Admin: https://studio37customdesigns.com/admin#leads`,
   ].join('\n');
