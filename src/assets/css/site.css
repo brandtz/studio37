@@ -418,6 +418,7 @@
   grid-template-columns: 1fr 1fr;
   min-height: 540px;
 }
+.service-row-no-image { grid-template-columns: 1fr; }
 .service-row.reverse > .service-row-img { order: 2; }
 .service-row-img { position: relative; overflow: hidden; }
 .service-row-img img { width: 100%; height: 100%; object-fit: cover; }

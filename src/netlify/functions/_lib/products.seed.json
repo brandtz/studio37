@@ -188,7 +188,7 @@
     "price": 74995,
     "description": "Live edge Black Walnut bench. Each bench is hand-built around the slab.",
     "category": "furniture",
-    "images": ["/assets/images/shop/bench_1.jpg", "/assets/images/shop/bench_2.jpg"],
+    "images": [],
     "status": "by_request",
     "by_request": true,
     "shipping": false,
