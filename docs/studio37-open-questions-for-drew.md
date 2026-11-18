@@ -1,13 +1,13 @@
 # Studio 37 — Open Questions and Needs for Drew
 
-Prepared for Matthew and Cicily to coordinate follow-up with Drew. This tracks the remaining confirmations and assets for the change requests; it does not include feedback that Cicily will provide after the current changes are pushed.
+Prepared for Matthew and Cicily to coordinate follow-up with Drew after the Oct. 25 quote-form update.
 
 ## Confirmations and decisions
 
 1. **Final quote-form service offerings:** Please confirm the names, grouping, and any additions/removals in the proposed service menu before it is treated as final.
 2. **Slab inquiries:** Confirm that slabs should be shown as available inventory with an inquiry button rather than purchased through the cart. The current proposed default is inquiry.
-3. **Backlog notice:** The proposed quote-form placement is directly after the deadline question and date field.
-4. **Liability release:** Confirm Studio 37's exact legal business name and whether Drew has an existing attorney-approved form. A general delivery, installation, and furniture assembly draft is available, but it is marked for Oregon attorney review and is not approved for signature or publication. Confirm where an attorney-approved form should be linked.
+3. **Slab turnaround:** Decide whether the slab-flattening page should still say 1–3 business days given the 3–4 month backlog notice.
+4. **Liability release:** Provide Drew's existing form, confirm Studio 37's exact legal business name, and decide where an attorney-approved form should be linked. The general-purpose draft is not approved for signature or publication and has not been linked.
 
 ## Photos and media Drew needs to provide
 
@@ -25,12 +25,16 @@ Prepared for Matthew and Cicily to coordinate follow-up with Drew. This tracks t
 
 4. **Instagram media:** Send only the specific original/exported photos or videos to use, and note the related project or service when known. The site work will use provided files rather than scraping Instagram.
 
-## Still to resolve after the first update
+## Matthew and Cicily
 
-- Cicily's upcoming review and feedback after the current changes are pushed.
-- Whether the attorney-approved liability form should be linked only near the delivery/install details or also in the footer.
+- **Matthew:** Remove the slab-flattening cart item from the live shop through the admin panel; it comes from live product data.
+- **Cicily:** Review the pushed update and share the new feedback list.
+- **Admin access:** Before inviting Cicily, fix and verify the first-login flow: it currently allows password setup for an approved account without verifying ownership of its email address. The invite function creates an approved account but does not send an invitation email.
+- Decide whether an attorney-approved liability form should be linked only near the delivery/install details or also in the footer.
 
 ## Already handled in the current update
 
 - Removed the two identified phone-screen bench images from public gallery/service surfaces and filtered them from public product responses. The underlying image files and product record are retained; new photos can replace them when supplied.
 - Prepared an editable liability-release draft and a PDF version for review. Both are explicitly marked as not approved for signature or publication.
+- Rebuilt the quote form with Drew's service examples and an additional Other option, and carried the new details into lead storage, notifications, and the admin drawer.
+- Removed the broken slab-flattening image until Drew supplies a replacement; the existing turnaround wording remains unchanged pending his decision.
