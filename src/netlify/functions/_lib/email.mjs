@@ -319,7 +319,7 @@ export async function sendLeadAcknowledgement(lead, labels = {}) {
         </td></tr>
         <tr><td style="padding:24px 32px 8px;">
           <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">Hi ${escapeHtml(firstName)},</p>
-          <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">Thanks for reaching out about <strong>${escapeHtml(service)}</strong>. Your request is in front of Drew now &mdash; he'll usually get back to you within 1&ndash;2 business days with next steps, follow-up questions, or a quote.</p>
+          <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">Thanks for reaching out about <strong>${escapeHtml(service)}</strong>. Your request is in front of Drew now &mdash; expect an initial response in approximately 3&ndash;5 business days with next steps, follow-up questions, or a quote.</p>
           <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">If your project is time-sensitive, feel free to call or text Drew directly at <a href="tel:+15415147720" style="color:#9a6a3a;text-decoration:none;">(541) 514-7720</a>.</p>
         </td></tr>
         <tr><td style="padding:16px 32px 32px;text-align:center;border-top:1px solid #e9e3d8;">
@@ -336,7 +336,7 @@ export async function sendLeadAcknowledgement(lead, labels = {}) {
     '',
     `Hi ${firstName},`,
     '',
-    `Thanks for reaching out about ${service}. Your request is in front of Drew now — he'll usually get back to you within 1–2 business days with next steps, follow-up questions, or a quote.`,
+    `Thanks for reaching out about ${service}. Your request is in front of Drew now — expect an initial response in approximately 3–5 business days with next steps, follow-up questions, or a quote.`,
     '',
     'If your project is time-sensitive, feel free to call or text Drew directly at (541) 514-7720.',
     '',
