@@ -6,8 +6,7 @@ Prepared for Matthew and Cicily to coordinate follow-up with Drew after the Oct.
 
 1. **Final quote-form service offerings:** Please confirm the names, grouping, and any additions/removals in the proposed service menu before it is treated as final.
 2. **Slab inquiries:** Confirm that slabs should be shown as available inventory with an inquiry button rather than purchased through the cart. The current proposed default is inquiry.
-3. **Slab turnaround:** Decide whether the slab-flattening page should still say 1–3 business days given the 3–4 month backlog notice.
-4. **Liability release:** Provide Drew's existing form, confirm Studio 37's exact legal business name, and decide where an attorney-approved form should be linked. The general-purpose draft is not approved for signature or publication and has not been linked.
+3. **Liability release:** Provide Drew's existing form, confirm Studio 37's exact legal business name, and decide where an attorney-approved form should be linked. The general-purpose draft is not approved for signature or publication and has not been linked.
 
 ## Photos and media Drew needs to provide
 
@@ -29,7 +28,7 @@ Prepared for Matthew and Cicily to coordinate follow-up with Drew after the Oct.
 
 - **Matthew:** Remove the slab-flattening cart item from the live shop through the admin panel; it comes from live product data.
 - **Cicily:** Review the pushed update and share the new feedback list.
-- **Admin access:** Before inviting Cicily, fix and verify the first-login flow: it currently allows password setup for an approved account without verifying ownership of its email address. The invite function creates an approved account but does not send an invitation email.
+- **Admin access:** Cicily's account has been approved but has no password. Disable it until the first-login flow is fixed and verified: it currently allows password setup for an approved account without verifying ownership of its email address. The invite function does not send an invitation email.
 - Decide whether an attorney-approved liability form should be linked only near the delivery/install details or also in the footer.
 
 ## Already handled in the current update
@@ -37,4 +36,9 @@ Prepared for Matthew and Cicily to coordinate follow-up with Drew after the Oct.
 - Removed the two identified phone-screen bench images from public gallery/service surfaces and filtered them from public product responses. The underlying image files and product record are retained; new photos can replace them when supplied.
 - Prepared an editable liability-release draft and a PDF version for review. Both are explicitly marked as not approved for signature or publication.
 - Rebuilt the quote form with Drew's service examples and an additional Other option, and carried the new details into lead storage, notifications, and the admin drawer.
-- Removed the broken slab-flattening image until Drew supplies a replacement; the existing turnaround wording remains unchanged pending his decision.
+- Removed the broken slab-flattening image until Drew supplies a replacement and updated its typical turnaround to 5–7 business days.
+
+## Planned: editable site content
+
+- Add an admin content editor so authorized users can update the slab turnaround and other agreed site copy without a code deployment.
+- Identify which content should be editable, then use a shared persisted content source with clear validation, preview, and publish controls; retain sensible site defaults and restrict edits to authorized users.
