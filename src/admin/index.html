@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
+  <meta name="referrer" content="no-referrer" />
   <title>Studio 37 Admin</title>
   <link rel="icon" href="/assets/images/logo-mark.png" />
   <link rel="stylesheet" href="/assets/css/tokens.css" />
@@ -31,16 +32,33 @@
       </button>
       <p class="admin-login-error" id="login-error"></p>
       <p style="margin-top:var(--space-4);text-align:center;font-size:.85rem;">
+        First sign-in or password reset by an administrator?
+        <a href="#" id="show-password-setup" style="color:var(--color-accent);">Email me a password setup link</a>
+      </p>
+      <p style="margin-top:var(--space-4);text-align:center;font-size:.85rem;">
         <a href="#" id="show-request-access" style="color:var(--color-accent);">Request access</a>
       </p>
     </form>
 
-    <!-- First-login: set password panel -->
+    <!-- Password setup requires the link delivered to the account's own inbox. -->
+    <form class="admin-login-card" id="setup-request-form" data-panel="setup-request" hidden>
+      <img src="/assets/images/logo.png" alt="Studio 37" />
+      <h1>Email a setup link</h1>
+      <p>For approved accounts without a password. This does not reset an existing password or approve an account.</p>
+      <div class="form-field">
+        <label class="form-label" for="setupEmail">Account email</label>
+        <input class="form-input" id="setupEmail" type="email" autocomplete="email" required />
+      </div>
+      <button class="btn-primary" type="submit">Email setup link</button>
+      <p id="setup-request-message" role="status" aria-live="polite"></p>
+      <p><a href="#" data-back-signin>Back to sign in</a></p>
+    </form>
+
     <form class="admin-login-card" id="setpass-form" data-panel="setpass" hidden>
       <img src="/assets/images/logo.png" alt="Studio 37" />
       <h1>Create your password</h1>
       <p style="color:var(--color-text-muted);font-size:.9rem;text-align:center;margin:0 0 var(--space-4);">
-        Welcome, <strong id="setpass-email"></strong>. Choose a password to finish setting up your account.
+        Choose a password to finish setting up your approved account. Your emailed link expires in 15 minutes.
       </p>
       <div class="form-field">
         <label class="form-label" for="setpass1">New password</label>
@@ -53,7 +71,9 @@
       <button class="btn-primary" style="width:100%;margin-top:var(--space-4);justify-content:center;" type="submit">
         Save &amp; Sign In
       </button>
-      <p class="admin-login-error" id="setpass-error"></p>
+      <p class="admin-login-error" id="setpass-error" role="status" aria-live="polite"></p>
+      <p><a href="#" id="request-new-setup">Request a new setup link</a></p>
+      <p><a href="#" data-back-signin>Back to sign in</a></p>
     </form>
 
     <!-- Request-access panel -->

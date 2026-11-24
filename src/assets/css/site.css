@@ -725,6 +725,10 @@
   border-color: var(--color-accent);
   color: var(--color-text-on-accent);
 }
+.pill-radio input:focus-visible + span {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
 .upload-zone {
   border: 1.5px dashed var(--color-border);
   border-radius: var(--radius-md);
@@ -1207,4 +1211,15 @@
 
 @media (max-width: 720px) {
   #product-detail { grid-template-columns: 1fr !important; }
+}
+.quote-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.upload-zone:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
 }

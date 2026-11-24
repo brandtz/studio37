@@ -18,7 +18,6 @@
       ['hardwood-flattening', 'Custom Orders: Timber - Hardwood Flattening'],
       ['countertop-or-bar', 'Custom Orders: Countertop or Bar'],
       ['shelves-built-ins', 'Custom Orders: Shelves & Built-ins'],
-      ['outdoor-sauna', 'Outdoor Sauna'],
     ] },
     { label: 'Custom Handcrafted Home Goods & Gifts', homeGoods: true, options: [
       ['cutting-board', 'Cutting Board'],
@@ -48,6 +47,7 @@
     'small-goods': 'Small Goods / Gifts',
     gc: 'GC Work',
     saunas: 'Saunas',
+    'outdoor-sauna': 'Outdoor Sauna',
     other: 'Other',
   };
   serviceGroups.forEach((group) => group.options.forEach(([value, label]) => {

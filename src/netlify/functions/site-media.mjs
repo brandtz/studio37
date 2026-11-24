@@ -9,7 +9,7 @@ export default async () => {
   const map = {};
   const { blobs } = await store.list();
   for (const b of blobs) {
-    if (b.key.startsWith('_')) continue;
+    if (b.key.startsWith('_') || b.key.startsWith('saunas.')) continue;
     const o = await store.get(b.key, { type: 'json' });
     if (o?.url) map[b.key] = { url: o.url, alt: o.alt || '' };
   }

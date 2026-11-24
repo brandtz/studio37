@@ -14,7 +14,7 @@
         if (!entry || !entry.url) return;
         if (el.tagName === 'IMG') {
           el.src = entry.url;
-          if (entry.alt) el.alt = entry.alt;
+          if (entry.alt && !el.hasAttribute('data-cms-alt-owned')) el.alt = entry.alt;
         } else {
           // Background-image style for non-img elements
           el.style.backgroundImage = `url("${entry.url}")`;

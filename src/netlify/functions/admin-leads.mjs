@@ -17,7 +17,7 @@ export default async (req) => {
     (blobs || []).map((b) => store.get(b.key, { type: 'json' })),
   );
   leads.sort((a, b) => (b?.created_at || '').localeCompare(a?.created_at || ''));
-  return json(leads.filter(Boolean));
+  return json(leads.filter(Boolean).map(({ quoteEmails, ...lead }) => lead));
 };
 
 export const config = { path: '/.netlify/functions/admin-leads' };

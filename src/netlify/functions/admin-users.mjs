@@ -4,20 +4,20 @@
 //   POST   ?email=:email&action=approve   set status=approved
 //   POST   ?email=:email&action=disable   set status=disabled
 //   POST   ?email=:email&action=enable    set status=approved
-//   POST   ?email=:email&action=reset-password   clear passwordHash so user re-sets on next login
+//   POST   ?email=:email&action=reset-password   revoke tokens; require inbox-verified password setup
 //   POST   (body: { email, role? })       create a user directly (super only)
 //   DELETE ?email=:email                  remove user
 
 import { json, userStore, ensureUserSeeded, nowIso } from './_lib/store.mjs';
-import { requireSession } from './_lib/auth.mjs';
+import { requireSession, revokeUserTokens, newAuthVersion, authJson } from './_lib/auth.mjs';
 
 function redact(u) {
   if (!u) return u;
-  const { passwordHash, ...rest } = u;
+  const { passwordHash, authVersion, ...rest } = u;
   return { ...rest, passwordSet: !!passwordHash };
 }
 
-export default async (req) => {
+async function handle(req) {
   const auth = await requireSession(req, { minRole: 'super' });
   if (auth.error) return auth.error;
   const me = auth.user;
@@ -64,6 +64,7 @@ export default async (req) => {
         role,
         passwordHash: null,
         passwordSet: false,
+        authVersion: newAuthVersion(),
         created_at: nowIso(),
         approved_at: nowIso(),
         approved_by: me.email,
@@ -97,6 +98,9 @@ export default async (req) => {
     } else {
       return json({ error: 'unknown_action' }, 400);
     }
+    // Persist the tombstone before writing so failed or stale user writes cannot
+    // revive sessions/setup links from the previous account epoch.
+    updated.authVersion = await revokeUserTokens(user);
     await store.setJSON(email, updated);
     return json(redact(updated));
   }
@@ -107,11 +111,21 @@ export default async (req) => {
     if (!user) return json({ error: 'not_found' }, 404);
     if (user.role === 'super') return json({ error: 'cannot_delete_super' }, 400);
     if (user.email === me.email) return json({ error: 'cannot_delete_self' }, 400);
+    await revokeUserTokens(user);
     await store.delete(email);
     return json({ ok: true });
   }
 
   return json({ error: 'method_not_allowed' }, 405);
+}
+
+export default async (req) => {
+  try {
+    return await handle(req);
+  } catch {
+    console.error('[auth] account operation failed');
+    return authJson({ error: 'account_update_unavailable', message: 'Account operation failed. Retry or contact the site owner.' }, 503);
+  }
 };
 
 export const config = { path: '/.netlify/functions/admin-users' };

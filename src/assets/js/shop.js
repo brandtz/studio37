@@ -8,12 +8,20 @@
     'cutting-boards':  (p) => /cutting/i.test(p.name) || /chopping|butcher/i.test(p.name),
     'charcuterie':     (p) => /charcuterie/i.test(p.name),
     'furniture':       (p) => p.category === 'furniture',
-    'saunas':          (p) => p.category === 'saunas',
     'custom':          (p) => p.status === 'by_request' && p.category !== 'saunas',
   };
 
   let products = [];
   let activeFilter = 'all';
+  let loadFailed = false;
+  const copy = Object.fromEntries(Studio37ContentSchema['dynamic-copy'].fields.map((field) => [field.id, field.default]));
+  const escape = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  Studio37Content.loadScope('dynamic-copy').then((values) => {
+    Object.assign(copy, values);
+    if (loadFailed) showError();
+    else if (loaded) render();
+  });
+  let loaded = false;
 
   function skeletonCard() {
     return `
@@ -41,43 +49,43 @@
   }
 
   function categoryLabel(p) {
-    if (p.status === 'by_request') return 'Made to Order';
+    if (p.status === 'by_request') return copy['shop-made-to-order'];
     return ({
-      'small-goods': 'Small Goods',
-      'furniture': 'Furniture',
-      'cabinetry': 'Cabinetry',
-      'slab-work': 'Slab',
-      'custom': 'Custom',
-    })[p.category] || 'Studio 37';
+      'small-goods': copy['shop-small-goods'],
+      'furniture': copy['shop-furniture'],
+      'cabinetry': copy['shop-cabinetry'],
+      'slab-work': copy['shop-slab'],
+      'custom': copy['shop-custom'],
+    })[p.category] || copy['shop-default-category'];
   }
 
   function ctaFor(p) {
     if (p.status === 'available') {
       return `
         <button class="btn-primary" type="button"
-          data-add-to-cart="${p.id}">
-          Add to Cart
+          data-add-to-cart="${escape(p.id)}">
+          ${escape(copy['shop-add'])}
         </button>`;
     }
     if (p.status === 'by_request') {
-      return `<a class="btn-ghost" href="/contact?service=${encodeURIComponent(p.category || 'custom')}&product=${encodeURIComponent(p.id)}">Request This Item</a>`;
+      return `<a class="btn-ghost" href="/contact?service=${encodeURIComponent(p.category || 'custom')}&product=${encodeURIComponent(p.id)}">${escape(copy['shop-request'])}</a>`;
     }
-    return `<span class="badge badge-neutral">Out of Stock</span>`;
+    return `<span class="badge badge-neutral">${escape(copy['shop-unavailable'])}</span>`;
   }
 
   function renderCard(p) {
     const href = `/shop/product?id=${encodeURIComponent(p.id)}`;
     return `
-      <article class="card-product" data-status="${p.status}">
+      <article class="card-product" data-status="${escape(p.status)}">
         <a class="card-product-img" href="${href}">
-          <img src="${p.images?.[0] || '/assets/images/logo.png'}" alt="${p.name}" loading="lazy" onerror="this.onerror=null;this.src='/assets/images/logo.png';" />
+          <img src="${escape(p.images?.[0] || '/assets/images/logo.png')}" alt="${escape(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='/assets/images/logo.png';" />
         </a>
         <div class="card-product-body">
-          <div class="card-product-category">${categoryLabel(p)}</div>
-          <a class="card-product-name" href="${href}" style="color:inherit;text-decoration:none;">${p.name}</a>
-          ${p.subtitle ? `<div class="card-product-sub">${p.subtitle}</div>` : ''}
+          <div class="card-product-category">${escape(categoryLabel(p))}</div>
+          <a class="card-product-name" href="${href}" style="color:inherit;text-decoration:none;">${escape(p.name)}</a>
+          ${p.subtitle ? `<div class="card-product-sub">${escape(p.subtitle)}</div>` : ''}
           <div class="card-product-footer">
-            <span class="card-product-price">${p.status === 'by_request' && p.price ? `From ${fmtMoney(p.price)}` : fmtMoney(p.price)}</span>
+            <span class="card-product-price">${p.status === 'by_request' && p.price ? `${escape(copy['shop-from'])} ${fmtMoney(p.price)}` : fmtMoney(p.price)}</span>
             <span class="card-product-cta">${ctaFor(p)}</span>
           </div>
         </div>
@@ -88,7 +96,7 @@
     const filter = SHOP_FILTER_MAP[activeFilter] || (() => true);
     const list = products.filter(filter);
     if (!list.length) {
-      grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--color-text-muted);padding:var(--space-8);">No items in this category yet.</p>`;
+      grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--color-text-muted);padding:var(--space-8);">${escape(copy['shop-empty'])}</p>`;
       return;
     }
     grid.innerHTML = list.map(renderCard).join('');
@@ -110,6 +118,9 @@
     });
   });
 
+  function showError() {
+    grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--color-text-muted);padding:var(--space-8);">${escape(copy['shop-error'])}</p>`;
+  }
   async function load() {
     renderSkeletons();
     try {
@@ -121,10 +132,12 @@
       // Sort: available first, then by_request, then out_of_stock
       const order = { available: 0, by_request: 1, out_of_stock: 2, archived: 3 };
       products.sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
+      loaded = true;
       render();
     } catch (err) {
       console.error('Failed to load products', err);
-      grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--color-text-muted);padding:var(--space-8);">The shop is taking a breather. Please refresh in a moment.</p>`;
+      loadFailed = true;
+      showError();
     }
   }
 

@@ -91,8 +91,14 @@
 
   function forceLogout(reason) {
     try { authChannel?.postMessage({ type: 'logout', reason }); } catch { /* ignore */ }
+    if (sessionToken) {
+      fetch('/api/auth/logout', {
+        method: 'POST', keepalive: true, headers: { Authorization: 'Bearer ' + sessionToken },
+      }).then((response) => {
+        if (!response.ok) console.warn('Server-side session revocation failed:', response.status);
+      }).catch(() => console.warn('Server-side session revocation failed.'));
+    }
     clearSession();
-    try { fetch('/api/auth/logout', { method: 'POST', keepalive: true }); } catch { /* ignore */ }
     const msg = reason === 'idle' ? '?reason=idle' : reason === 'expired' ? '?reason=expired' : '';
     window.location.replace('/admin' + msg);
   }
@@ -197,7 +203,14 @@
     }
     clearAllDirty();
     try { authChannel?.postMessage({ type: 'logout', reason: 'manual' }); } catch { /* ignore */ }
-    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch { /* ignore */ }
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST', headers: { Authorization: 'Bearer ' + sessionToken },
+      });
+      if (!response.ok) throw new Error('Revocation failed');
+    } catch {
+      window.alert('Signed out on this device, but server-side session revocation could not be confirmed. Contact the site owner.');
+    }
     clearSession();
     window.location.replace('/admin');
   });
@@ -239,7 +252,10 @@
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       closePwdDrawer();
-      toast('Password updated.');
+      try { authChannel?.postMessage({ type: 'logout', reason: 'password-changed' }); } catch { /* ignore */ }
+      clearSession();
+      window.alert('Password updated. Please sign in again.');
+      window.location.replace('/admin');
     } catch (err) {
       errEl.textContent = err.message || 'Could not update password.';
     }
@@ -254,9 +270,11 @@
   });
 
   function setSection(section) {
+    if (section !== 'content' && window.Studio37ContentAdmin?.hasUnsaved() &&
+        !window.confirm('Leave Content with unsaved text changes?')) return;
     if (section === 'users' && me?.role !== 'super') section = 'products';
     if (section === 'connect' && me?.role !== 'super') section = 'products';
-    const sectionMap = ['products', 'media', 'reviews', 'orders', 'leads', 'users', 'connect', 'categories', 'site-media'];
+    const sectionMap = ['products', 'media', 'reviews', 'orders', 'leads', 'users', 'connect', 'categories', 'site-media', 'content'];
     sectionMap.forEach((s) => {
       const el = $(`#section-${s}`);
       if (el) el.hidden = s !== section;
@@ -266,7 +284,7 @@
     $('#section-title').textContent = ({
       products: 'Products', media: 'Media', reviews: 'Reviews',
       orders: 'Orders', leads: 'Leads', users: 'Users', connect: 'Payments',
-      categories: 'Product Categories', 'site-media': 'Site Media',
+      categories: 'Product Categories', 'site-media': 'Site Media', content: 'Website Content',
     })[section] || 'Admin';
 
     $('#new-product-btn').hidden = section !== 'products';
@@ -283,6 +301,7 @@
     if (section === 'connect')  loadConnect();
     if (section === 'categories') loadCategories();
     if (section === 'site-media') loadSiteMedia();
+    if (section === 'content') window.Studio37ContentAdmin?.load({ api, markDirty, markClean });
     if (section === 'settings') loadSettings();
   }
 
@@ -728,7 +747,7 @@
         <tr data-lead-id="${escapeHtml(l.id)}" style="cursor:pointer;">
           <td>${new Date(l.created_at).toLocaleString()}</td>
           <td>${escapeHtml([l.firstName, l.lastName].filter(Boolean).join(' ') || '—')}</td>
-          <td>${escapeHtml(LEAD_SERVICE_LABEL[l.service] || l.service || '—')}</td>
+          <td>${escapeHtml(l.quotePresentation?.labels?.service || LEAD_SERVICE_LABEL[l.service] || l.service || '—')}</td>
           <td>${l.phone ? `<a href="tel:${escapeHtml(l.phone)}" style="color:var(--color-accent);" onclick="event.stopPropagation()">${escapeHtml(l.phone)}</a>` : '—'}</td>
           <td>${l.email ? `<a href="mailto:${escapeHtml(l.email)}" style="color:var(--color-accent);" onclick="event.stopPropagation()">${escapeHtml(l.email)}</a>` : '—'}</td>
         </tr>
@@ -772,13 +791,13 @@
         </div>
         <div>
           <div style="color:var(--color-text-muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;">Project</div>
-          <div>${escapeHtml(LEAD_SERVICE_LABEL[lead.service] || lead.service || '—')}</div>
+          <div>${escapeHtml(lead.quotePresentation?.labels?.service || LEAD_SERVICE_LABEL[lead.service] || lead.service || '—')}</div>
           <div>${escapeHtml(lead.location || '—')}</div>
-          <div>Customer type: ${escapeHtml(LEAD_CUSTOMER_TYPE[lead.customerType] || lead.customerType || '—')}</div>
+          <div>Customer type: ${escapeHtml(lead.quotePresentation?.labels?.customerType || LEAD_CUSTOMER_TYPE[lead.customerType] || lead.customerType || '—')}</div>
           <div>Deadline: ${escapeHtml(lead.hasDeadline === 'yes' ? `Yes, by ${lead.deadlineDate || '—'}` : lead.hasDeadline === 'no' ? 'No' : '—')}</div>
           <div>Engraving add-on: ${lead.engravingAddon === true ? 'Yes' : lead.engravingAddon === false ? 'No' : '—'}</div>
-          <div>${escapeHtml(lead.budget ? (LEAD_BUDGET_LABEL[lead.budget] || lead.budget) : '—')}</div>
-          <div style="color:var(--color-text-muted);margin-top:var(--space-2);">Heard about us: ${escapeHtml(LEAD_REFERRAL_LABEL[lead.referral] || lead.referral || '—')}</div>
+          <div>${escapeHtml(lead.budget ? (lead.quotePresentation?.labels?.budget || LEAD_BUDGET_LABEL[lead.budget] || lead.budget) : '—')}</div>
+          <div style="color:var(--color-text-muted);margin-top:var(--space-2);">Heard about us: ${escapeHtml(lead.quotePresentation?.labels?.referral || LEAD_REFERRAL_LABEL[lead.referral] || lead.referral || '—')}</div>
         </div>
       </div>
       <div style="margin-top:var(--space-5);">

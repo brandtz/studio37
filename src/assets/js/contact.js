@@ -5,39 +5,27 @@
   const success = document.getElementById('form-success');
   const successName = document.getElementById('success-name');
 
-  const QUOTE_ERROR_MESSAGES = {
-    too_many_photos: 'Please attach up to 3 reference photos.',
-    photo_too_large: 'Each reference photo must be 10 MB or smaller.',
-    invalid_photo_type: 'Reference photos must be JPG, PNG, WEBP, or GIF images.',
-    invalid_email: 'Please enter a valid email address.',
-    invalid_phone: 'Please enter a valid phone number.',
-    invalid_customer_type: 'Please select a valid customer type.',
-    invalid_state: 'Please enter a two-letter state abbreviation.',
-    invalid_deadline: 'Please select a valid deadline date.',
-    invalid_service: 'Please select a valid service offering.',
-    invalid_engraving: 'Engraving is available with home goods and gifts.',
-    photo_upload_failed: 'Your photos could not be uploaded. Please try again or email Drew@studio37customdesigns.com.',
-    lead_save_failed: 'Your request could not be saved. Please try again or email Drew@studio37customdesigns.com.',
-    too_many_requests: 'Please give us a chance to respond before sending more requests.',
-  };
-  const QUOTE_ERROR_MESSAGE_VALUES = new Set(Object.values(QUOTE_ERROR_MESSAGES));
-
-  const { serviceGroups, customerTypes, serviceLabels, homeGoods } = window.Studio37QuoteOptions;
+  const { serviceLabels } = window.Studio37QuoteOptions;
+  const quoteForm = window.Studio37QuoteForm;
+  let presentation = { schema: quoteForm.definition.schema, revision: null, values: quoteForm.defaults() };
+  const message = (name) => presentation.values['message-' + name];
   const sel = form.querySelector('#service');
-  serviceGroups.forEach((group) => {
-    const optgroup = document.createElement('optgroup');
-    optgroup.label = group.label;
-    group.options.forEach(([value, label]) => optgroup.appendChild(new Option(label, value)));
-    sel.add(optgroup);
-  });
-  sel.add(new Option('Other (describe in Order Details)', 'other'));
-  const customerType = form.querySelector('#customerType');
-  Object.entries(customerTypes).forEach(([value, label]) => customerType.add(new Option(label, value)));
+  quoteForm.apply(presentation.values);
+  async function refreshPresentation() {
+    const response = await fetch('/.netlify/functions/quote-form-content', { cache: 'no-store' });
+    if (!response.ok) throw new Error(message('quote_form_unavailable'));
+    const record = await response.json();
+    if (record.schema !== quoteForm.definition.schema) throw new Error(message('quote_form_unavailable'));
+    quoteForm.apply(record.values);
+    presentation = record;
+    updateEngraving();
+  }
 
   const engravingField = document.getElementById('engraving-field');
   const engraving = form.elements.engravingAddon;
   function updateEngraving() {
-    const show = homeGoods.includes(sel.value);
+    const show = quoteForm.parseChoices('service', presentation.values['choices-service'])
+      .some((row) => row.id === sel.value && row.group === 'home-goods');
     engravingField.hidden = !show;
     engraving.disabled = !show;
     if (!show) engraving.checked = false;
@@ -60,22 +48,47 @@
   const params = new URLSearchParams(location.search);
   const serviceParam = params.get('service');
   const desc = form.querySelector('#description');
-  if (serviceParam) {
-    const aliases = { slab: 'hardwood-flattening', 'slab-flattening': 'hardwood-flattening', saunas: 'outdoor-sauna' };
+  let serviceTouched = false;
+  let prefillText = '';
+  sel.addEventListener('change', () => { serviceTouched = true; });
+  function prefillService() {
+    if (!serviceParam || serviceTouched || /\bsaunas?\b/i.test(serviceParam)) return;
+    const aliases = { slab: 'hardwood-flattening', 'slab-flattening': 'hardwood-flattening' };
     const requested = aliases[serviceParam] || serviceParam;
     if (Array.from(sel.options).some((o) => o.value === requested)) {
       sel.value = requested;
+      if (prefillText && desc.value === prefillText) desc.value = '';
     } else {
       sel.value = 'other';
       const label = serviceLabels[serviceParam] || serviceParam.replace(/[-_]+/g, ' ');
-      desc.value = `Inquiring about: ${label}\n\n`;
+      if (!desc.value || desc.value === prefillText) {
+        prefillText = `Inquiring about: ${label}\n\n`;
+        desc.value = prefillText;
+      }
     }
+    updateEngraving();
   }
+  prefillService();
   updateEngraving();
   const productParam = params.get('product');
-  if (productParam) {
+  if (productParam && !/\bsaunas?\b/i.test(productParam) && !/\bsaunas?\b/i.test(serviceParam || '')) {
     desc.value += `I'm interested in: ${productParam}\n\n`;
   }
+  const originalPrefill = desc.value;
+  window.Studio37Content.loadScope('dynamic-copy').then((copy) => {
+    if (!originalPrefill || desc.value !== originalPrefill) return;
+    let updated = originalPrefill;
+    if (prefillText && updated.startsWith(prefillText)) {
+      const newPrefill = prefillText.replace('Inquiring about:', copy['quote-prefill-service']);
+      updated = newPrefill + updated.slice(prefillText.length);
+      prefillText = newPrefill;
+    }
+    if (productParam) updated = updated.replace("I'm interested in:", copy['quote-prefill-product']);
+    desc.value = updated;
+  });
+  const ready = refreshPresentation().then(prefillService).catch(() => {
+    document.getElementById('quote-form-status').textContent = message('defaults');
+  });
 
   // File picker UI
   const zone = document.getElementById('upload-zone');
@@ -96,12 +109,12 @@
   fileInput.addEventListener('change', () => {
     const files = Array.from(fileInput.files);
     if (files.length > MAX_FILES) {
-      alert(`Up to ${MAX_FILES} images please.`);
+      alert(message('file_count'));
       fileInput.value = '';
       return;
     }
     if (files.some((f) => f.size > MAX_BYTES)) {
-      alert('Each image must be 10 MB or smaller.');
+      alert(message('file_size'));
       fileInput.value = '';
       return;
     }
@@ -122,34 +135,42 @@
     e.preventDefault();
     if (form.querySelector('[name="bot-field"]').value) return; // honeypot
 
+    await ready;
+    if (form.querySelector('button[type="submit"]').disabled) return;
     if (!form.reportValidity()) return;
 
     const submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Sending…';
+    submitBtn.textContent = message('sending');
 
     try {
       const fd = new FormData(form);
+      fd.set('quoteSchema', presentation.schema);
+      fd.set('quoteRevision', presentation.revision || '');
       const r = await fetch('/api/quote-request', {
         method: 'POST',
         body: fd,
       });
       if (!r.ok) {
         const body = await r.json().catch(() => ({}));
-        throw new Error(QUOTE_ERROR_MESSAGES[body.error] || body.message || ('HTTP ' + r.status));
+        if (body.error === 'quote_form_changed') await refreshPresentation();
+        const field = 'message-' + body.error;
+        throw new Error(Object.hasOwn(presentation.values, field) ? presentation.values[field] : message('fallback'));
       }
 
-      successName.textContent = (fd.get('firstName') || 'friend').toString();
+      successName.textContent = (fd.get('firstName') || message('friend')).toString();
       form.hidden = true;
       success.hidden = false;
       window.scrollTo({ top: success.offsetTop - 100, behavior: 'smooth' });
     } catch (err) {
       console.error('Quote submission failed', err);
-      alert(err.message && QUOTE_ERROR_MESSAGE_VALUES.has(err.message)
-        ? err.message
-        : 'Something went wrong sending your request. Please email Drew@studio37customdesigns.com or try again in a moment.');
+      const status = document.getElementById('quote-form-status');
+      const knownMessages = quoteForm.definition.fields.filter((field) => field.id.startsWith('message-')).map((field) => presentation.values[field.id]);
+      status.textContent = err.message && knownMessages.includes(err.message) ? err.message : message('fallback');
+      status.tabIndex = -1;
+      status.focus();
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Send My Request →';
+      submitBtn.textContent = presentation.values.submit;
     }
   });
 })();

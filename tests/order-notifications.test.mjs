@@ -1,5 +1,25 @@
 import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
+const snapshots = new Map();
+const published = new Map();
+let failSnapshots = false;
+mock.module('@netlify/blobs', { namedExports: { getStore: ({ name }) => name === 'order_email_snapshots_v1' ? {
+  get: async (key) => {
+    if (failSnapshots) throw new Error('private snapshot failure');
+    return structuredClone(snapshots.get(key) || null);
+  },
+  setJSON: async (key, value, options) => {
+    assert.equal(options.onlyIfNew, true);
+    if (snapshots.has(key)) return { modified: false };
+    snapshots.set(key, structuredClone(value));
+    return { modified: true };
+  },
+} : {
+  getWithMetadata: async (key) => {
+    const record = published.get(key);
+    return record ? { data: record, etag: '"test"' } : null;
+  },
+} } });
 
 const orders = new Map();
 const deliveries = [];
@@ -8,11 +28,14 @@ let checkoutSession = null;
 let failOwner = false;
 let failSave = false;
 let failOwnerFlag = false;
+let failCustomer = false;
+let failCustomerFlag = false;
 const store = {
   get: async (id) => structuredClone(orders.get(id) || null),
   setJSON: async (id, value) => {
     if (failSave) throw new Error('test storage failure');
     if (failOwnerFlag && value.owner_email_sent) throw new Error('test flag failure');
+    if (failCustomerFlag && value.email_sent) throw new Error('test customer flag failure');
     orders.set(id, structuredClone(value));
   },
 };
@@ -40,6 +63,7 @@ mock.module('resend', {
       if (failOwner && message.tags.some((tag) => tag.value === 'order_notification')) {
         return { error: { message: 'test delivery failure' } };
       }
+      if (failCustomer && message.tags.some((tag) => tag.value === 'order_confirmation')) return { error: { message: 'test failure' } };
       return { data: { id: 'email-test' } };
     } };
   } },
@@ -143,6 +167,7 @@ test('Stripe events notify Drew independently of customer receipts', async (t) =
 
   await t.test('does not notify for historical imports or old records', async () => {
     orders.clear(); deliveries.length = 0;
+    const snapshotCount = snapshots.size;
     currentEvent = { type: 'payment_intent.succeeded', data: { object: payment } };
     await importPaymentIntentAsOrder(payment, 'studio37', null, { historicalImport: true });
     assert.equal((await handler(request())).status, 200);
@@ -150,6 +175,7 @@ test('Stripe events notify Drew independently of customer receipts', async (t) =
     currentEvent = { type: 'checkout.session.completed', data: { object: session } };
     assert.equal((await handler(request())).status, 200);
     assert.equal(deliveries.length, 0);
+    assert.equal(snapshots.size, snapshotCount);
   });
 
   await t.test('returns an error when the order cannot be saved', async () => {
@@ -171,5 +197,88 @@ test('Stripe events notify Drew independently of customer receipts', async (t) =
     assert.equal((await handler(request())).status, 503);
     assert.equal(orders.size, 0);
     delete process.env.STRIPE_SECRET_KEY;
+  });
+
+  await t.test('owner and customer retries reuse persisted payloads after a CMS publication change', async () => {
+    orders.clear(); snapshots.clear(); deliveries.length = 0;
+    currentEvent = { type: 'checkout.session.completed', data: { object: session } };
+    failCustomer = true; failOwner = true;
+    assert.equal((await handler(request())).status, 500);
+    const confirmation = structuredClone(deliveries[0]);
+    const notification = structuredClone(deliveries[1]);
+    assert.ok(snapshots.has(`${session.id}/confirmation`));
+    published.set('email.order-confirmation', {
+      id: 'new-confirmation', schema: 'email-copy-v2', values: { subject: 'Changed receipt', body: 'Changed wording' },
+    });
+    failCustomer = false; failOwner = true;
+    assert.equal((await handler(request())).status, 500);
+    assert.deepEqual(deliveries[2], confirmation);
+    assert.deepEqual(deliveries[3], notification);
+    published.set('email.order-notification', {
+      id: 'new-notification', schema: 'email-copy-v2', values: { subject: 'Changed notification', body: 'Changed wording' },
+    });
+    failOwner = false;
+    assert.equal((await handler(request())).status, 200);
+    assert.deepEqual(deliveries[4], notification);
+    assert.equal(orders.get(session.id).email_sent, true);
+    assert.equal(orders.get(session.id).owner_email_sent, true);
+    published.clear();
+  });
+
+  await t.test('confirmation sent-marker failures retry with the committed snapshot', async () => {
+    orders.clear(); snapshots.clear(); deliveries.length = 0;
+    failCustomerFlag = true;
+    assert.equal((await handler(request())).status, 500);
+    failCustomerFlag = false;
+    assert.equal((await handler(request())).status, 200);
+    const confirmations = deliveries.filter(({ message }) => message.tags.some((tag) => tag.value === 'order_confirmation'));
+    assert.deepEqual(confirmations[0], confirmations[1]);
+    assert.equal(deliveries[0].options.idempotencyKey, `order-confirmation/${session.id}`);
+  });
+
+  await t.test('snapshot storage failure returns 500 without provider send or changing existing order fields', async () => {
+    deliveries.length = 0;
+    orders.set(session.id, { ...orders.get(session.id), email_sent: false, owner_email_sent: false,
+      internal_notes: 'Preserve this', tracking_number: 'TRACK', lifecycle: 'working' });
+    failSnapshots = true;
+    assert.equal((await handler(request())).status, 500);
+    assert.equal(deliveries.length, 0);
+    assert.equal(orders.get(session.id).internal_notes, 'Preserve this');
+    assert.equal(orders.get(session.id).tracking_number, 'TRACK');
+    assert.equal(orders.get(session.id).lifecycle, 'working');
+    failSnapshots = false;
+    assert.equal((await handler(request())).status, 200);
+    assert.equal(orders.get(session.id).internal_notes, 'Preserve this');
+    assert.equal(orders.get(session.id).tracking_number, 'TRACK');
+    assert.equal(orders.get(session.id).lifecycle, 'working');
+    deliveries.length = 0;
+    orders.set(session.id, { ...orders.get(session.id), email_sent: false });
+    snapshots.set(`${session.id}/confirmation`, { version: 'corrupt' });
+    assert.equal((await handler(request())).status, 500);
+    assert.equal(deliveries.length, 0);
+  });
+
+  await t.test('customer failure does not prevent the independently persisted owner notification', async () => {
+    snapshots.clear(); orders.clear(); deliveries.length = 0;
+    failCustomer = true;
+    assert.equal((await handler(request())).status, 500);
+    assert.equal(orders.get(session.id).email_sent, false);
+    assert.equal(orders.get(session.id).owner_email_sent, true);
+    failCustomer = false;
+    assert.equal((await handler(request())).status, 200);
+    assert.equal(deliveries.filter(({ message }) => message.tags.some((tag) => tag.value === 'order_notification')).length, 1);
+  });
+
+  await t.test('payment-event retries also recover a missing checkout customer receipt', async () => {
+    snapshots.clear(); orders.clear(); deliveries.length = 0;
+    checkoutSession = session;
+    currentEvent = { type: 'payment_intent.succeeded', data: { object: { ...payment, id: 'pi_test_123' } } };
+    failCustomer = true;
+    assert.equal((await handler(request())).status, 500);
+    failCustomer = false;
+    assert.equal((await handler(request())).status, 200);
+    assert.equal(orders.get(session.id).email_sent, true);
+    assert.equal(deliveries.filter(({ message }) => message.tags.some((tag) => tag.value === 'order_notification')).length, 1);
+    checkoutSession = null;
   });
 });

@@ -133,7 +133,7 @@
 
       // Tagline
       const taglineEl = footer.querySelector('.footer-brand p');
-      if (taglineEl && s.business_tagline) taglineEl.textContent = s.business_tagline;
+      if (taglineEl && s.business_tagline && !taglineEl.hasAttribute('data-cms-text-owned')) taglineEl.textContent = s.business_tagline;
 
       // Social icons
       const social = footer.querySelector('.footer-social');

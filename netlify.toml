@@ -1,10 +1,13 @@
 # Studio 37 — Netlify configuration
 
 [build]
-  publish = "src"
+  command = "node scripts/prepare-publish.mjs"
+  publish = "dist"
   functions = "src/netlify/functions"
+  edge_functions = "src/netlify/edge-functions"
 
 [build.environment]
+  NODE_VERSION = "22"
   # Netlify's secrets scanner false-positives on these keys because substrings of
   # the whsec_ values appear in CSS hex colors in tokens.css and design handoff files.
   # The actual secrets are NOT hardcoded in the repo — they live only in Netlify env vars.
@@ -22,6 +25,24 @@
   pretty_urls = true
 
 # API routing: /api/* lives in functions
+[[redirects]]
+  from = "/saunas"
+  to = "/services"
+  status = 302
+  force = true
+
+[[redirects]]
+  from = "/saunas.html"
+  to = "/services"
+  status = 302
+  force = true
+
+[[redirects]]
+  from = "/saunas/*"
+  to = "/services"
+  status = 302
+  force = true
+
 [[redirects]]
   from = "/api/products"
   to = "/.netlify/functions/products"

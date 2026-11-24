@@ -11,6 +11,30 @@
   const STORAGE_KEY = 'studio37_cart_v1';
   const LEGACY_STORAGE_KEYS = []; // none yet; previously sessionStorage same key
   const CONFIG_KEY = 'studio37_public_config';
+  const cartFields = globalThis.Studio37ContentSchema.cart.fields;
+  const copy = Object.fromEntries(cartFields.map((field) => [field.id, field.default]));
+
+  async function loadCopy() {
+    try {
+      const response = await fetch('/.netlify/functions/public-content?page=cart', { cache: 'no-store' });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const result = await response.json();
+      for (const field of cartFields) {
+        if (typeof result.cart?.[field.id] === 'string') copy[field.id] = result.cart[field.id];
+      }
+      document.querySelectorAll('[data-checkout-status]').forEach((banner) => {
+        banner.textContent = copy[banner.dataset.checkoutStatus];
+      });
+      if (drawer) {
+        drawer.setAttribute('aria-label', copy['cart-accessible']);
+        drawer.querySelector('.cart-head h2').textContent = copy.title;
+        drawer.querySelector('.cart-close').setAttribute('aria-label', copy['close-accessible']);
+        render();
+      }
+    } catch (error) {
+      console.warn('Cart content unavailable; using built-in text.', error);
+    }
+  }
 
   let items = readCart();
   let publicConfig = null;
@@ -189,11 +213,11 @@
     drawer = document.createElement('aside');
     drawer.className = 'cart-drawer';
     drawer.setAttribute('aria-hidden', 'true');
-    drawer.setAttribute('aria-label', 'Shopping cart');
+    drawer.setAttribute('aria-label', copy['cart-accessible']);
     drawer.innerHTML = `
       <header class="cart-head">
-        <h2>Your Cart</h2>
-        <button class="cart-close" type="button" aria-label="Close cart">&times;</button>
+        <h2>${escape(copy.title)}</h2>
+        <button class="cart-close" type="button" aria-label="${escape(copy['close-accessible'])}">&times;</button>
       </header>
       <div class="cart-body" data-cart-body></div>
       <footer class="cart-foot" data-cart-foot></footer>
@@ -211,7 +235,7 @@
     const body = drawer.querySelector('[data-cart-body]');
     const foot = drawer.querySelector('[data-cart-foot]');
     if (!items.length) {
-      body.innerHTML = `<p class="cart-empty">Your cart is empty.<br/><br/><a class="btn-ghost" href="/shop">Browse the shop</a></p>`;
+      body.innerHTML = `<p class="cart-empty">${escape(copy.empty)}<br/><br/><a class="btn-ghost" href="/shop">${escape(copy.browse)}</a></p>`;
       foot.innerHTML = '';
       return;
     }
@@ -225,10 +249,10 @@
           <div class="cart-line-name">${escape(i.name)}</div>
           <div class="cart-line-price${priceClass}">${fmtMoney(i.price)}</div>
           <div class="cart-line-qty">
-            <button type="button" data-qty-dec aria-label="Decrease quantity">&minus;</button>
+            <button type="button" data-qty-dec aria-label="${escape(copy['decrease-accessible'])}">&minus;</button>
             <span>${i.quantity}</span>
-            <button type="button" data-qty-inc aria-label="Increase quantity">&plus;</button>
-            <button type="button" data-remove class="cart-line-remove">Remove</button>
+            <button type="button" data-qty-inc aria-label="${escape(copy['increase-accessible'])}">&plus;</button>
+            <button type="button" data-remove class="cart-line-remove">${escape(copy.remove)}</button>
           </div>
           ${warning}
         </div>
@@ -241,12 +265,12 @@
     const blocked = hasBlockingWarnings();
     foot.innerHTML = `
       <div class="cart-totals">
-        <span>Subtotal</span>
+        <span>${escape(copy.subtotal)}</span>
         <strong>${fmtMoney(subtotal)}</strong>
       </div>
-      <p class="cart-fineprint">Shipping &amp; tax calculated at checkout.</p>
-      ${blocked ? '<p class="cart-fineprint" style="color:#b54;">Resolve the issues above before checking out.</p>' : ''}
-      <button class="btn-primary cart-checkout" type="button"${blocked ? ' disabled' : ''}>Checkout &rarr;</button>
+      <p class="cart-fineprint">${escape(copy.shipping)}</p>
+      ${blocked ? `<p class="cart-fineprint" style="color:#b54;">${escape(copy.blocked)}</p>` : ''}
+      <button class="btn-primary cart-checkout" type="button"${blocked ? ' disabled' : ''}>${escape(copy.checkout)}</button>
     `;
 
     body.querySelectorAll('.cart-line').forEach((line) => {
@@ -263,13 +287,13 @@
     switch (line._warning) {
       case 'missing':
       case 'unavailable':
-        return `<p class="cart-line-warning">No longer available. <a href="#" data-remove>Remove from cart</a></p>`;
+        return `<p class="cart-line-warning">${escape(copy.unavailable)} <a href="#" data-remove>${escape(copy['remove-from-cart'])}</a></p>`;
       case 'by_request':
-        return `<p class="cart-line-warning">This item is by request only. <a href="/contact">Contact Drew</a> to order.</p>`;
+        return `<p class="cart-line-warning">${escape(copy['by-request'])} <a href="/contact">${escape(copy.contact)}</a> ${escape(copy['to-order'])}</p>`;
       case 'out_of_stock':
-        return `<p class="cart-line-warning">Out of stock right now. <a href="#" data-remove>Remove</a> or check back soon.</p>`;
+        return `<p class="cart-line-warning">${escape(copy['out-of-stock'])} <a href="#" data-remove>${escape(copy.remove)}</a> ${escape(copy['check-back'])}</p>`;
       case 'price_changed':
-        return `<p class="cart-line-warning">Price changed to ${fmtMoney(line._serverPrice)}. <button type="button" class="link-btn" data-accept-price>Use new price</button> or <a href="#" data-remove>remove</a>.</p>`;
+        return `<p class="cart-line-warning">${escape(copy['price-changed'])} ${fmtMoney(line._serverPrice)}. <button type="button" class="link-btn" data-accept-price>${escape(copy['accept-price'])}</button> <a href="#" data-remove>${escape(copy['or-remove'])}</a>.</p>`;
       default:
         return '';
     }
@@ -311,19 +335,19 @@
     if (!items.length) return;
     const cfg = await loadConfig();
     const btn = drawer.querySelector('.cart-checkout');
-    if (btn) { btn.disabled = true; btn.textContent = 'Starting checkout…'; }
+    if (btn) { btn.disabled = true; btn.textContent = copy.starting; }
 
     // Force a fresh revalidation right before redirecting to Stripe.
     await revalidateCart({ force: true });
     if (hasBlockingWarnings()) {
-      if (btn) { btn.disabled = false; btn.textContent = 'Checkout →'; }
+      if (btn) { btn.disabled = false; btn.textContent = copy.checkout; }
       render();
       return;
     }
 
     if (!cfg.checkoutEnabled) {
-      alert('Checkout is not yet active. Please contact Drew at (541) 514-7720 to place this order.');
-      if (btn) { btn.disabled = false; btn.textContent = 'Checkout →'; }
+      alert(copy['checkout-disabled']);
+      if (btn) { btn.disabled = false; btn.textContent = copy.checkout; }
       return;
     }
 
@@ -339,14 +363,14 @@
       if (!r.ok || !data?.url) {
         const msg = data?.message || data?.error || `Checkout failed (HTTP ${r.status}).`;
         alert(msg);
-        if (btn) { btn.disabled = false; btn.textContent = 'Checkout →'; }
+        if (btn) { btn.disabled = false; btn.textContent = copy.checkout; }
         return;
       }
       window.location.href = data.url;
     } catch (err) {
       console.error('Checkout failed', err);
-      alert('Could not start checkout. Please try again.');
-      if (btn) { btn.disabled = false; btn.textContent = 'Checkout →'; }
+      alert(copy['checkout-error']);
+      if (btn) { btn.disabled = false; btn.textContent = copy.checkout; }
     }
   }
 
@@ -374,14 +398,16 @@
       // Tiny banner via prompt-style toast
       const el = document.createElement('div');
       el.className = 'checkout-banner success';
-      el.innerHTML = `<strong>Thank you!</strong> Your order is in. You'll receive a confirmation email shortly.`;
+      el.dataset.checkoutStatus = 'success';
+      el.textContent = copy.success;
       document.body.appendChild(el);
       setTimeout(() => el.classList.add('show'), 50);
       setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 8000);
     } else if (status === 'cancelled') {
       const el = document.createElement('div');
       el.className = 'checkout-banner cancelled';
-      el.textContent = 'Checkout cancelled. Your cart is still here when you’re ready.';
+      el.dataset.checkoutStatus = 'cancelled';
+      el.textContent = copy.cancelled;
       document.body.appendChild(el);
       setTimeout(() => el.classList.add('show'), 50);
       setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 6000);
@@ -398,6 +424,7 @@
     wireNavCart();
     updateCount();
     handleReturn();
+    loadCopy();
     loadConfig();
   }
 

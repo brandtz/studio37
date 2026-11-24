@@ -9,6 +9,12 @@
   <link rel="stylesheet" href="/assets/css/tokens.css" />
   <link rel="stylesheet" href="/assets/css/admin.css" />
   <script defer src="/assets/js/quote-options.js"></script>
+  <script defer src="/assets/js/content-schema.js"></script>
+  <script defer src="/assets/js/seo-schema.js"></script>
+  <script defer src="/assets/js/quote-form-schema.js"></script>
+  <script defer src="/assets/js/email-template-schema.js"></script>
+  <script defer src="/assets/js/content.js"></script>
+  <script defer src="/assets/js/content-admin.js"></script>
   <script defer src="/assets/js/admin.js"></script>
 </head>
 <body class="admin grain">
@@ -49,6 +55,7 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16v16H4z"/><path d="m4 16 5-5 4 4 3-3 4 4"/><circle cx="9" cy="9" r="1.5"/></svg>
           Site Media
         </a></li>
+        <li><a href="#content" data-section="content">Content</a></li>
         <li data-nav-users hidden><a href="#users" data-section="users">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Users
@@ -202,6 +209,40 @@
         </section>
 
         <!-- SITE MEDIA SECTION -->
+        <section id="section-content" hidden>
+          <p>Edit page text and transactional email copy. Email subjects and narrative bodies support listed variables; transaction details, secure links, recipients and secrets remain code-owned. Business/contact details remain in Settings.</p>
+          <p id="content-publish-blocker" role="status" style="color:var(--color-accent);"></p>
+          <div class="admin-toolbar">
+            <label for="content-page">Page</label>
+            <select id="content-page"></select>
+            <button type="button" class="btn-admin-ghost" id="content-reload">Reload history</button>
+          </div>
+          <p id="content-status" role="status" aria-live="polite"></p>
+          <form id="content-form">
+            <div id="content-fields" style="max-width:900px;"></div>
+            <div class="admin-toolbar">
+              <button type="submit" class="btn-admin" id="content-save">Save private draft</button>
+              <button type="button" class="btn-admin-ghost" id="content-preview">Preview current text</button>
+              <button type="button" class="btn-admin" id="content-publish" disabled>Publish saved draft</button>
+              <button type="button" class="btn-admin-ghost" id="content-rebase">Review current published differences</button>
+            </div>
+          </form>
+          <div id="content-comparison" hidden>
+            <h3>Current published text compared with your editor</h3>
+            <p>Review these differences before replacing your draft's original publication base. No text is merged automatically.</p>
+            <div id="content-differences"></div>
+            <button type="button" class="btn-admin-ghost" id="content-use-base">Use reviewed published base; save a new draft</button>
+          </div>
+          <p>Preview is a non-interactive layout snapshot. Scripts, forms, checkout, product/review loading, and live Settings hydration are disabled; original fallback business details are shown.</p>
+          <iframe id="content-preview-frame" title="Private content layout preview" sandbox="" referrerpolicy="no-referrer" hidden style="width:100%;height:680px;border:1px solid var(--color-border);"></iframe>
+          <h3>Private draft history</h3>
+          <p>Each save keeps a separate revision; simultaneous editors never overwrite each other's drafts. Loading a revision edits a copy. Restore creates another private draft, not a publication.</p>
+          <div id="content-history" style="max-width:900px;"></div>
+          <h3>Committed publication history</h3>
+          <p>Restore creates a new private draft based on current published text; review it before publishing. Failed publishing attempts are excluded.</p>
+          <div id="content-publications" style="max-width:900px;"></div>
+        </section>
+
         <section id="section-site-media" hidden>
           <p style="color:var(--color-text-muted);max-width:680px;margin-bottom:var(--space-5);">
             Replace the hero and gallery images used on public pages. Each slot is a named position
@@ -668,7 +709,7 @@
     </header>
     <form class="drawer-body" id="pwd-form" data-dirty-name="pwd">
       <p style="color:var(--color-text-muted);font-size:.9rem;margin:0 0 var(--space-4);">
-        Choose a new password (8+ characters). You'll stay signed in after the change.
+        Choose a new password (8+ characters). You'll need to sign in again after the change.
       </p>
       <div class="form-field">
         <label class="form-label" for="pwd-current">Current password</label>

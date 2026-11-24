@@ -1,16 +1,15 @@
 // POST /api/auth/login
 // Body: { email, password }
 // Responses:
-//   200 { firstLogin: true, setupToken } — user must set a password
 //   200 { token, user } — session token issued
 //   401 { error: 'invalid_credentials' }
 //   403 { error: 'pending' | 'disabled' }
 
 import { json, userStore, ensureUserSeeded, nowIso } from './_lib/store.mjs';
-import { signSession, signSetupToken, verifyPassword } from './_lib/auth.mjs';
+import { signSession, verifyPassword, authJson } from './_lib/auth.mjs';
 import { checkRateLimit, clientIp } from './_lib/rate-limit.mjs';
 
-export default async (req) => {
+async function handle(req) {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
   // Per-IP rate limit: 5 attempts / minute. Blunts password brute force.
@@ -58,23 +57,33 @@ export default async (req) => {
     return json({ error: 'invalid_credentials' }, 401);
   }
 
-  // First-login flow: user is approved but has not set a password yet.
-  // Only triggered when the user submits with a non-empty password field;
-  // the blank-password loophole is closed by the check above.
-  if (!user.passwordSet || !user.passwordHash) {
-    const setupToken = await signSetupToken(email);
-    return json({ firstLogin: true, setupToken, email });
-  }
+  // Knowing an email (or submitting any password) is not proof of inbox ownership.
+  if (!user.passwordSet || !user.passwordHash) return json({ error: 'invalid_credentials' }, 401);
 
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) return json({ error: 'invalid_credentials' }, 401);
 
-  await store.setJSON(email, { ...user, last_login: nowIso() });
-  const token = await signSession(user);
-  return json({
+  // Do not issue using a password/status snapshot changed while bcrypt ran.
+  const fresh = await store.get(email, { type: 'json' });
+  if (!fresh || fresh.status !== 'approved' || !fresh.passwordSet
+      || fresh.passwordHash !== user.passwordHash || fresh.authVersion !== user.authVersion) {
+    return authJson({ error: 'invalid_credentials' }, 401);
+  }
+  const token = await signSession(fresh);
+  await store.setJSON(email, { ...fresh, last_login: nowIso() });
+  return authJson({
     token,
     user: { email: user.email, role: user.role },
   });
+}
+
+export default async (req) => {
+  try {
+    return await handle(req);
+  } catch {
+    console.error('[auth] login failed');
+    return authJson({ error: 'login_unavailable', message: 'Sign-in is unavailable. Try again later or contact the site owner.' }, 503);
+  }
 };
 
 export const config = { path: '/.netlify/functions/auth-login' };

@@ -5,8 +5,16 @@
 
   const params = new URLSearchParams(location.search);
   const id = params.get('id');
+  const copy = Object.fromEntries(Studio37ContentSchema['dynamic-copy'].fields.map((field) => [field.id, field.default]));
+  let currentProduct = null;
+  let failure = id ? null : 'unspecified';
+  Studio37Content.loadScope('dynamic-copy').then((values) => {
+    Object.assign(copy, values);
+    if (failure) renderFailure(failure);
+    else if (currentProduct) render(currentProduct);
+  });
   if (!id) {
-    root.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--color-text-muted);padding:var(--space-8);">Product not specified. <a href="/shop" style="color:var(--color-accent);">Back to shop</a>.</p>`;
+    renderFailure('unspecified');
     return;
   }
 
@@ -16,6 +24,11 @@
   }
   function escape(s) {
     return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function renderFailure(reason) {
+    const text = copy[reason === 'unspecified' ? 'product-unspecified' : reason === 'not_found' ? 'product-unavailable' : 'product-error'];
+    const link = copy[reason === 'unspecified' ? 'product-back' : 'product-browse'];
+    root.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--color-text-muted);padding:var(--space-8);">${escape(text)} <a href="/shop" style="color:var(--color-accent);">${escape(link)}</a>.</p>`;
   }
 
   function render(p) {
@@ -34,25 +47,25 @@
     const isOOS = p.status === 'out_of_stock';
 
     const priceLine = p.price != null
-      ? (isByRequest ? `From ${fmtMoney(p.price)}` : fmtMoney(p.price))
+      ? (isByRequest ? `${copy['shop-from']} ${fmtMoney(p.price)}` : fmtMoney(p.price))
       : '';
 
     const specs = [];
-    if (p.dimensions) specs.push(['Dimensions', p.dimensions]);
-    if (p.materials) specs.push(['Materials', p.materials]);
-    if (p.lead_time_days) specs.push(['Lead time', `${p.lead_time_days} days`]);
-    if (p.sku) specs.push(['SKU', p.sku]);
+    if (p.dimensions) specs.push([copy['product-dimensions'], p.dimensions]);
+    if (p.materials) specs.push([copy['product-materials'], p.materials]);
+    if (p.lead_time_days) specs.push([copy['product-lead-time'], `${p.lead_time_days} ${copy['product-days']}`]);
+    if (p.sku) specs.push([copy['product-sku'], p.sku]);
     const specsHtml = specs.length
       ? `<dl class="product-specs">${specs.map(([k, v]) => `<dt>${escape(k)}</dt><dd>${escape(v)}</dd>`).join('')}</dl>`
       : '';
 
     let ctaHtml = '';
     if (isBuyable) {
-      ctaHtml = `<button class="btn-primary" type="button" id="pd-add-to-cart">Add to cart &mdash; ${escape(fmtMoney(p.price))}</button>`;
+      ctaHtml = `<button class="btn-primary" type="button" id="pd-add-to-cart">${escape(copy['product-add'])} &mdash; ${escape(fmtMoney(p.price))}</button>`;
     } else if (isByRequest) {
-      ctaHtml = `<a class="btn-primary" href="/contact?product=${encodeURIComponent(p.id)}">Request a quote</a>`;
+      ctaHtml = `<a class="btn-primary" href="/contact?product=${encodeURIComponent(p.id)}">${escape(copy['product-request'])}</a>`;
     } else if (isOOS) {
-      ctaHtml = `<button class="btn-primary" type="button" disabled>Out of stock</button>`;
+      ctaHtml = `<button class="btn-primary" type="button" disabled>${escape(copy['product-unavailable-button'])}</button>`;
     }
 
     root.innerHTML = `
@@ -93,12 +106,9 @@
       if (!r.ok) throw new Error('http_' + r.status);
       return r.json();
     })
-    .then(render)
+    .then((product) => { currentProduct = product; render(product); })
     .catch((err) => {
-      if (err.message === 'not_found') {
-        root.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--color-text-muted);padding:var(--space-8);">This product is no longer available. <a href="/shop" style="color:var(--color-accent);">Browse the shop</a>.</p>`;
-      } else {
-        root.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--color-text-muted);padding:var(--space-8);">Could not load this product. <a href="/shop" style="color:var(--color-accent);">Browse the shop</a>.</p>`;
-      }
+      failure = err.message === 'not_found' ? 'not_found' : 'error';
+      renderFailure(failure);
     });
 })();

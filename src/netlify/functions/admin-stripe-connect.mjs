@@ -21,6 +21,7 @@ import {
 } from './_lib/stripe.mjs';
 import { syncAllProductsToStripe } from './_lib/stripe-product-sync.mjs';
 import { importHistoricalPayments } from './_lib/stripe-order-sync.mjs';
+import { createRefreshUrl, siteOrigin } from './_lib/stripe-onboarding.mjs';
 
 export default async (req) => {
   const auth = await requireSession(req, { minRole: 'super' });
@@ -98,13 +99,12 @@ export default async (req) => {
         await saveTenant({ ...tenant.value, stripe_account_id: acctId });
       }
 
-      const baseUrl = process.env.SITE_URL || `${url.protocol}//${url.host}`;
-      // Refresh/return URLs must be public — Drew (the merchant completing this
-      // form) is not an admin user of this site and must never be bounced to
-      // our staff login. See stripe-connect-refresh.mjs.
+      const baseUrl = siteOrigin();
+      // The merchant needs no staff login; the refresh URL carries a
+      // short-lived, account-bound capability instead.
       const link = await stripe().accountLinks.create({
         account: acctId,
-        refresh_url: `${baseUrl}/stripe/onboarding-refresh`,
+        refresh_url: await createRefreshUrl(tenant.value.id, acctId),
         return_url: `${baseUrl}/stripe/onboarding-complete`,
         type: 'account_onboarding',
       });
@@ -122,10 +122,10 @@ export default async (req) => {
     try {
       // For Standard accounts, login_links are not available — Standard users log in
       // at dashboard.stripe.com directly. We instead generate a fresh account link.
-      const baseUrl = process.env.SITE_URL || `${url.protocol}//${url.host}`;
+      const baseUrl = siteOrigin();
       const link = await stripe().accountLinks.create({
         account: tenant.value.stripe_account_id,
-        refresh_url: `${baseUrl}/stripe/onboarding-refresh`,
+        refresh_url: await createRefreshUrl(tenant.value.id, tenant.value.stripe_account_id),
         return_url: `${baseUrl}/stripe/onboarding-complete`,
         type: 'account_onboarding',
       });

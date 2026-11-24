@@ -1,6 +1,5 @@
 // Resend transactional email helper.
-// All functions are best-effort: they log + return on missing env or send errors
-// so the caller (e.g. stripe-webhook) never fails because email failed.
+// Helpers report failures to their callers; quote retries persist their payloads.
 //
 // Env vars (set in Netlify):
 //   RESEND_API_KEY     required — Production API key from resend.com
@@ -10,6 +9,8 @@
 //   ORDER_NOTIFY_TO    optional — defaults to Drew's email
 
 import { Resend } from 'resend';
+import { readEmailCopy, defaultEmailCopy, applyEmailCopy, validateEmailHeaders } from './email-content.mjs';
+import { orderEmailSnapshots, OrderEmailSnapshotError } from './order-email-snapshot.mjs';
 
 const DEFAULT_FROM = 'Studio 37 Custom Designs <orders@studio37customdesigns.com>';
 const DEFAULT_REPLY_TO = 'Drew@studio37customdesigns.com';
@@ -72,17 +73,7 @@ function renderItemsText(items, currency) {
  * @param {object} order Persisted order object from stripe-webhook.
  * @returns {Promise<{ok:boolean, id?:string, error?:string, skipped?:boolean}>}
  */
-export async function sendOrderConfirmation(order) {
-  const resend = client();
-  if (!resend) {
-    console.warn('[email] RESEND_API_KEY not set — skipping order confirmation');
-    return { ok: false, skipped: true, error: 'no_api_key' };
-  }
-  if (!order?.customer_email) {
-    console.warn('[email] order missing customer_email — skipping', order?.id);
-    return { ok: false, skipped: true, error: 'no_recipient' };
-  }
-
+async function buildOrderConfirmationMessage(order) {
   const from = process.env.RESEND_FROM || DEFAULT_FROM;
   const replyTo = process.env.RESEND_REPLY_TO || DEFAULT_REPLY_TO;
   const orderNum = shortId(order.id);
@@ -106,8 +97,7 @@ export async function sendOrderConfirmation(order) {
           <p style="margin:0;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#9a8b73;">Order #${escapeHtml(orderNum)}</p>
         </td></tr>
         <tr><td style="padding:24px 32px 8px;">
-          <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">Hi ${escapeHtml(firstName)},</p>
-          <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">Thanks for your order from Studio 37 Custom Designs. Drew has been notified and your order is in the queue.</p>
+          <!--studio37-email-narrative-->
         </td></tr>
         <tr><td style="padding:0 32px;">
           ${itemsHtml}
@@ -117,9 +107,7 @@ export async function sendOrderConfirmation(order) {
           </table>
         </td></tr>
         <tr><td style="padding:8px 32px 24px;">
-          <h3 style="margin:16px 0 8px;font-size:14px;letter-spacing:0.12em;text-transform:uppercase;color:#9a8b73;font-weight:normal;">What's next</h3>
-          <p style="margin:0 0 12px;font-size:15px;line-height:1.55;">In-stock goods ship in 3–7 business days. Custom pieces follow the timeline we discussed — Drew will reach out with an update as your piece progresses.</p>
-          <p style="margin:0 0 16px;font-size:15px;line-height:1.55;">Questions? Reply to this email or call Drew at <a href="tel:+15415147720" style="color:#9a6a3a;text-decoration:none;">(541) 514-7720</a>.</p>
+          <p><a href="tel:+15415147720" style="color:#9a6a3a;">(541) 514-7720</a></p>
         </td></tr>
         <tr><td style="padding:16px 32px 32px;text-align:center;border-top:1px solid #e9e3d8;">
           <p style="margin:0;font-size:12px;letter-spacing:0.08em;color:#9a8b73;">— Studio 37 Custom Designs</p>
@@ -133,48 +121,36 @@ export async function sendOrderConfirmation(order) {
   const text = [
     `Studio 37 Custom Designs — Order #${orderNum}`,
     '',
-    `Hi ${firstName},`,
-    '',
-    'Thanks for your order from Studio 37 Custom Designs. Drew has been notified and your order is in the queue.',
+    '[[studio37-email-narrative]]',
     '',
     itemsText,
     subtotal ? `  Subtotal: ${subtotal}` : null,
     total ? `  Total:    ${total}` : null,
     '',
-    'What\'s next:',
-    'In-stock goods ship in 3–7 business days. Custom pieces follow the timeline we discussed — Drew will reach out with an update as your piece progresses.',
-    '',
-    'Questions? Reply to this email or call Drew at (541) 514-7720.',
+    '(541) 514-7720',
     '',
     '— Studio 37 Custom Designs',
     'https://studio37customdesigns.com',
   ].filter((l) => l !== null).join('\n');
 
-  try {
-    const { data, error } = await resend.emails.send({
-      from,
-      to: order.customer_email,
-      reply_to: replyTo,
-      subject,
-      html,
-      text,
-      headers: {
-        'X-Entity-Ref-ID': order.id,
-      },
-      tags: [
-        { name: 'type', value: 'order_confirmation' },
-        { name: 'tenant', value: order.tenant_id || 'studio37' },
-      ],
-    });
-    if (error) {
-      console.error('[email] resend send error', error);
-      return { ok: false, error: error.message || 'send_failed' };
-    }
-    return { ok: true, id: data?.id };
-  } catch (err) {
-    console.error('[email] resend exception', err);
-    return { ok: false, error: err?.message || 'exception' };
-  }
+  const current = await readEmailCopy('email.order-confirmation');
+  return applyEmailCopy({
+    from,
+    to: order.customer_email,
+    reply_to: replyTo,
+    subject,
+    html,
+    text,
+    headers: {
+      'X-Entity-Ref-ID': order.id,
+    },
+    tags: [
+      { name: 'type', value: 'order_confirmation' },
+      { name: 'tenant', value: order.tenant_id || 'studio37' },
+    ],
+  }, 'email.order-confirmation', current, {
+    orderNumber: orderNum, firstName, customerName: order.customer_name || '', total,
+  });
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -184,13 +160,7 @@ export async function sendOrderConfirmation(order) {
 /**
  * Notify Drew of a new order or payment, independently of the customer receipt.
  */
-export async function sendOrderNotification(order) {
-  const resend = client();
-  if (!resend) {
-    console.warn('[email] RESEND_API_KEY not set — skipping order notification');
-    return { ok: false, skipped: true, error: 'no_api_key' };
-  }
-
+async function buildOrderNotificationMessage(order) {
   const currency = order.currency || 'usd';
   const total = fmtMoney(order.amount_total, currency);
   const title = order.source === 'stripe_direct' ? 'New Studio 37 payment' : 'New Studio 37 order';
@@ -207,41 +177,66 @@ export async function sendOrderNotification(order) {
   ).join('');
   const html = `<html><body style="font-family:Georgia,serif;color:#3a322a;">
     <h1>${title}</h1>
+    <!--studio37-email-narrative-->
     <table role="presentation">${rowsHtml}</table>
     ${renderItemsHtml(order.items, currency)}
     <p><a href="https://studio37customdesigns.com/admin">Open the admin dashboard to view orders</a></p>
   </body></html>`;
   const text = [
     title,
+    '[[studio37-email-narrative]]',
     ...rows.map(([key, value]) => `${key}: ${value}`),
     renderItemsText(order.items, currency),
     'View orders in the admin dashboard: https://studio37customdesigns.com/admin',
   ].join('\n');
 
+  const current = await readEmailCopy('email.order-notification');
+  return applyEmailCopy({
+    from: process.env.RESEND_FROM || DEFAULT_FROM,
+    to: process.env.ORDER_NOTIFY_TO || DREW_NOTIFY_TO,
+    reply_to: order.customer_email || (process.env.RESEND_REPLY_TO || DEFAULT_REPLY_TO),
+    subject: `${title} — #${shortId(order.id)}`,
+    html,
+    text,
+    headers: { 'X-Entity-Ref-ID': order.id },
+    tags: [{ name: 'type', value: 'order_notification' }],
+  }, 'email.order-notification', current, {
+    title, orderNumber: shortId(order.id), firstName: (order.customer_name || '').split(' ')[0] || 'there',
+    customerName: order.customer_name || '', total,
+  });
+}
+
+async function sendPersistedOrderEmail(order, type, render) {
+  const resend = client();
+  if (!resend) return { ok: false, skipped: true, error: 'no_api_key' };
+  let snapshot;
   try {
-    const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM || DEFAULT_FROM,
-      to: process.env.ORDER_NOTIFY_TO || DREW_NOTIFY_TO,
-      reply_to: order.customer_email || (process.env.RESEND_REPLY_TO || DEFAULT_REPLY_TO),
-      subject: `${title} — #${shortId(order.id)}`,
-      html,
-      text,
-      headers: { 'X-Entity-Ref-ID': order.id },
-      tags: [{ name: 'type', value: 'order_notification' }],
-    }, { idempotencyKey: `order-notification/${order.id}` });
-    if (error) {
-      console.error('[email] order notification send error', error);
-      return { ok: false, error: error.message || 'send_failed' };
-    }
-    if (!data?.id) {
-      console.error('[email] order notification response missing message id');
-      return { ok: false, error: 'missing_message_id' };
-    }
-    return { ok: true, id: data.id };
-  } catch (err) {
-    console.error('[email] order notification exception', err);
-    return { ok: false, error: err?.message || 'exception' };
+    snapshot = await orderEmailSnapshots.getOrCreate(order?.id, type, render);
+  } catch (error) {
+    if (error.code === 'no_recipient') return { ok: false, skipped: true, error: 'no_recipient' };
+    const code = error.code === 'snapshot_invalid' ? 'snapshot_invalid' : 'snapshot_unavailable';
+    console.error(`[order-email] ${type} ${code}`);
+    return { ok: false, error: code };
   }
+  try {
+    const { data, error } = await resend.emails.send(snapshot.message, { idempotencyKey: snapshot.idempotencyKey });
+    if (error) return { ok: false, error: 'send_failed', ...quoteProviderDetails(error) };
+    if (typeof data?.id !== 'string' || !data.id.trim()) return { ok: false, error: 'missing_message_id' };
+    return { ok: true, id: data.id };
+  } catch (error) {
+    return { ok: false, error: 'exception', ...quoteProviderDetails(error) };
+  }
+}
+
+export async function sendOrderNotification(order) {
+  return sendPersistedOrderEmail(order, 'notification', () => buildOrderNotificationMessage(order));
+}
+
+export async function sendOrderConfirmation(order) {
+  return sendPersistedOrderEmail(order, 'confirmation', () => {
+    if (!order?.customer_email) throw new OrderEmailSnapshotError('no_recipient');
+    return buildOrderConfirmationMessage(order);
+  });
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -257,13 +252,7 @@ function leadFullName(lead) {
  * @param {object} lead Persisted lead from quote-request.mjs.
  * @param {object} [labels] Pre-resolved human labels: { service, budget }.
  */
-export async function sendLeadNotification(lead, labels = {}) {
-  const resend = client();
-  if (!resend) {
-    console.warn('[email] RESEND_API_KEY not set — skipping lead notify');
-    return { ok: false, skipped: true, error: 'no_api_key' };
-  }
-
+export function buildLeadNotification(lead, labels = {}, current = defaultEmailCopy('email.quote-notification')) {
   const from = process.env.RESEND_FROM || DEFAULT_FROM;
   const to = process.env.LEAD_NOTIFY_TO || DREW_NOTIFY_TO;
   const replyTo = lead?.email || (process.env.RESEND_REPLY_TO || DEFAULT_REPLY_TO);
@@ -318,7 +307,7 @@ export async function sendLeadNotification(lead, labels = {}) {
           ${photosHtml ? `<h3>Reference photos</h3><ul>${photosHtml}</ul>` : ''}
         </td></tr>
         <tr><td style="padding:0 32px 24px;">
-          <p style="margin:0;font-size:13px;color:#6e6055;">Reply to this email to respond to ${escapeHtml(lead?.email || 'the customer')} directly, or view the full lead in the admin dashboard.</p>
+          <!--studio37-email-narrative-->
           <p style="margin:8px 0 0;font-size:13px;"><a href="https://studio37customdesigns.com/admin#leads" style="color:#9a6a3a;text-decoration:none;">Open admin dashboard &rarr;</a></p>
         </td></tr>
       </table>
@@ -335,30 +324,20 @@ export async function sendLeadNotification(lead, labels = {}) {
     desc,
     '',
     ...photos.map((url, i) => `Reference photo ${i + 1}: ${url}`),
-    `Reply to this email to respond to ${lead?.email || 'the customer'} directly.`,
+    '[[studio37-email-narrative]]',
     `Admin: https://studio37customdesigns.com/admin#leads`,
   ].join('\n');
 
-  try {
-    const { data, error } = await resend.emails.send({
-      from,
-      to,
-      reply_to: replyTo,
-      subject,
-      html,
-      text,
-      headers: { 'X-Entity-Ref-ID': lead?.id || '' },
-      tags: [{ name: 'type', value: 'lead_notification' }],
-    });
-    if (error) {
-      console.error('[email] lead notify send error', error);
-      return { ok: false, error: error.message || 'send_failed' };
-    }
-    return { ok: true, id: data?.id };
-  } catch (err) {
-    console.error('[email] lead notify exception', err);
-    return { ok: false, error: err?.message || 'exception' };
-  }
+  return applyEmailCopy({
+    from,
+    to,
+    reply_to: replyTo,
+    subject,
+    html,
+    text,
+    headers: { 'X-Entity-Ref-ID': lead?.id || '' },
+    tags: [{ name: 'type', value: 'lead_notification' }],
+  }, 'email.quote-notification', current, { firstName: lead?.firstName || 'there', customerName: name, customerEmail: lead?.email || 'the customer', service });
 }
 
 /**
@@ -366,16 +345,7 @@ export async function sendLeadNotification(lead, labels = {}) {
  * @param {object} lead Persisted lead from quote-request.mjs.
  * @param {object} [labels] Pre-resolved human labels: { service }.
  */
-export async function sendLeadAcknowledgement(lead, labels = {}) {
-  const resend = client();
-  if (!resend) {
-    console.warn('[email] RESEND_API_KEY not set — skipping lead acknowledgement');
-    return { ok: false, skipped: true, error: 'no_api_key' };
-  }
-  if (!lead?.email) {
-    return { ok: false, skipped: true, error: 'no_recipient' };
-  }
-
+export function buildLeadAcknowledgement(lead, labels = {}, current = defaultEmailCopy('email.quote-acknowledgement')) {
   const from = process.env.RESEND_FROM || DEFAULT_FROM;
   const replyTo = process.env.RESEND_REPLY_TO || DEFAULT_REPLY_TO;
 
@@ -393,9 +363,9 @@ export async function sendLeadAcknowledgement(lead, labels = {}) {
           <p style="margin:0;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#9a8b73;">Request received</p>
         </td></tr>
         <tr><td style="padding:24px 32px 8px;">
-          <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">Hi ${escapeHtml(firstName)},</p>
-          <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">Thanks for reaching out about <strong>${escapeHtml(service)}</strong>. Your request is in front of Drew now &mdash; expect an initial response in approximately 3&ndash;5 business days with next steps, follow-up questions, or a quote.</p>
-          <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">If your project is time-sensitive, feel free to call or text Drew directly at <a href="tel:+15415147720" style="color:#9a6a3a;text-decoration:none;">(541) 514-7720</a>.</p>
+          <!--studio37-email-narrative-->
+          <p>Service: <strong>${escapeHtml(service)}</strong></p>
+          <p><a href="tel:+15415147720" style="color:#9a6a3a;">(541) 514-7720</a></p>
         </td></tr>
         <tr><td style="padding:16px 32px 32px;text-align:center;border-top:1px solid #e9e3d8;">
           <p style="margin:0;font-size:12px;letter-spacing:0.08em;color:#9a8b73;">&mdash; Studio 37 Custom Designs</p>
@@ -409,34 +379,81 @@ export async function sendLeadAcknowledgement(lead, labels = {}) {
   const text = [
     `Studio 37 Custom Designs — Request received`,
     '',
-    `Hi ${firstName},`,
+    '[[studio37-email-narrative]]',
     '',
-    `Thanks for reaching out about ${service}. Your request is in front of Drew now — expect an initial response in approximately 3–5 business days with next steps, follow-up questions, or a quote.`,
-    '',
-    'If your project is time-sensitive, feel free to call or text Drew directly at (541) 514-7720.',
+    `Service: ${service}`,
+    '(541) 514-7720',
     '',
     '— Studio 37 Custom Designs',
     'https://studio37customdesigns.com',
   ].join('\n');
 
-  try {
-    const { data, error } = await resend.emails.send({
-      from,
-      to: lead.email,
-      reply_to: replyTo,
-      subject,
-      html,
-      text,
-      headers: { 'X-Entity-Ref-ID': lead.id || '' },
-      tags: [{ name: 'type', value: 'lead_acknowledgement' }],
-    });
-    if (error) {
-      console.error('[email] lead ack send error', error);
-      return { ok: false, error: error.message || 'send_failed' };
-    }
-    return { ok: true, id: data?.id };
-  } catch (err) {
-    console.error('[email] lead ack exception', err);
-    return { ok: false, error: err?.message || 'exception' };
+  return applyEmailCopy({
+    from,
+    to: lead.email,
+    reply_to: replyTo,
+    subject,
+    html,
+    text,
+    headers: { 'X-Entity-Ref-ID': lead.id || '' },
+    tags: [{ name: 'type', value: 'lead_acknowledgement' }],
+  }, 'email.quote-acknowledgement', current, { firstName, customerName: leadFullName(lead), service });
+}
+
+const QUOTE_PROVIDER_CODES = new Set([
+  'invalid_idempotency_key', 'validation_error', 'missing_api_key', 'restricted_api_key',
+  'invalid_api_key', 'not_found', 'method_not_allowed', 'invalid_idempotent_request',
+  'concurrent_idempotent_requests', 'invalid_attachment', 'invalid_from_address',
+  'invalid_access', 'invalid_parameter', 'invalid_region', 'missing_required_field',
+  'monthly_quota_exceeded', 'daily_quota_exceeded', 'rate_limit_exceeded',
+  'security_error', 'application_error', 'internal_server_error',
+]);
+
+function quoteProviderDetails(error) {
+  const details = {};
+  if (QUOTE_PROVIDER_CODES.has(error?.name)) details.providerCode = error.name;
+  if (Number.isInteger(error?.statusCode) && error.statusCode >= 100 && error.statusCode <= 599) {
+    details.providerStatus = error.statusCode;
   }
+  return details;
+}
+
+export async function sendQuoteEmail(message, idempotencyKey) {
+  const resend = client();
+  if (!resend) return { ok: false, skipped: true, error: 'no_api_key' };
+  try {
+    validateEmailHeaders(message);
+    const { data, error } = await resend.emails.send(message, { idempotencyKey });
+    if (error) {
+      return { ok: false, error: 'send_failed', ...quoteProviderDetails(error) };
+    }
+    if (typeof data?.id !== 'string' || !data.id.trim()) return { ok: false, error: 'missing_message_id' };
+    return { ok: true, id: data?.id };
+  } catch (error) {
+    return { ok: false, error: 'exception', ...quoteProviderDetails(error) };
+  }
+}
+
+export async function sendLeadNotification(lead, labels = {}) {
+  const snapshot = await prepareQuoteEmailSnapshots(lead, labels);
+  return sendQuoteEmail(snapshot.notification, `quote-notification/${lead?.id || ''}`);
+}
+
+export async function sendLeadAcknowledgement(lead, labels = {}) {
+  if (!process.env.RESEND_API_KEY) return { ok: false, skipped: true, error: 'no_api_key' };
+  if (!lead?.email) return { ok: false, skipped: true, error: 'no_recipient' };
+  const snapshot = await prepareQuoteEmailSnapshots(lead, labels);
+  return sendQuoteEmail(snapshot.acknowledgement, `quote-acknowledgement/${lead.id}`);
+}
+
+export async function prepareQuoteEmailSnapshots(lead, labels = {}, read = readEmailCopy) {
+  const scopes = ['email.quote-notification', 'email.quote-acknowledgement'];
+  const records = await Promise.all(scopes.map((scope) => read(scope)));
+  return {
+    notification: buildLeadNotification(lead, labels, records[0]),
+    acknowledgement: buildLeadAcknowledgement(lead, labels, records[1]),
+    templates: Object.fromEntries(scopes.map((scope, i) => [scope, {
+      schema: records[i].schema, revision: records[i].revision, fallback: !!records[i].fallback,
+    }])),
+  };
 }

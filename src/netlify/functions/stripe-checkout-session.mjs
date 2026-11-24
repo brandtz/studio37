@@ -9,6 +9,8 @@
 
 import { ensureProductSeeded, productStore, json, nowIso } from './_lib/store.mjs';
 import { stripe, requireConnectedTenant } from './_lib/stripe.mjs';
+import { siteOrigin } from './_lib/stripe-onboarding.mjs';
+import { isPublicProduct } from './_lib/public-availability.mjs';
 
 const MAX_ITEMS = 30;
 const MAX_QTY = 20;
@@ -26,10 +28,17 @@ export default async (req) => {
   if (!rawItems.length) return json({ error: 'cart_empty' }, 400);
   if (rawItems.length > MAX_ITEMS) return json({ error: 'too_many_items' }, 400);
 
-  const url = new URL(req.url);
-  const baseUrl = process.env.SITE_URL || `${url.protocol}//${url.host}`;
+  const baseUrl = siteOrigin();
   const successUrl = (typeof body?.successUrl === 'string' && body.successUrl) || `${baseUrl}/order/confirmed?session_id={CHECKOUT_SESSION_ID}`;
   const cancelUrl  = (typeof body?.cancelUrl  === 'string' && body.cancelUrl)  || `${baseUrl}/shop?checkout=cancelled`;
+  for (const target of [successUrl, cancelUrl]) {
+    try {
+      const parsed = new URL(target);
+      if (parsed.origin !== baseUrl || parsed.username || parsed.password) return json({ error: 'invalid_return_url' }, 400);
+    } catch {
+      return json({ error: 'invalid_return_url' }, 400);
+    }
+  }
 
   const productsStore = productStore();
   const lineItems = [];
@@ -41,7 +50,7 @@ export default async (req) => {
     const qty = Math.max(1, Math.min(MAX_QTY, parseInt(it?.quantity, 10) || 1));
     if (!id) continue;
     const p = await productsStore.get(id, { type: 'json' });
-    if (!p || p.status === 'archived' || p.status === 'out_of_stock') {
+    if (!isPublicProduct(p) || p.status === 'out_of_stock') {
       return json({ error: 'product_unavailable', id }, 400);
     }
     if (p.status === 'by_request') {

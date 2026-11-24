@@ -1,5 +1,9 @@
 # Studio 37 — _redirects (fallback for `netlify.toml` rules; both are honored).
 
+/saunas                   /services                                302!
+/saunas.html              /services                                302!
+/saunas/*                 /services                                302!
+
 /api/products/*           /.netlify/functions/products?id=:splat   200
 /api/products             /.netlify/functions/products             200
 /api/admin/products/*     /.netlify/functions/admin-products?id=:splat 200
@@ -17,7 +21,7 @@
 /api/admin/stripe-connect/:action  /.netlify/functions/admin-stripe-connect?action=:action  200
 /api/admin/stripe-connect     /.netlify/functions/admin-stripe-connect     200
 
-# Public, unauthenticated Stripe onboarding refresh/return (merchant-facing).
+# Merchant-facing onboarding refresh requires a signed capability.
 /stripe/onboarding-refresh    /.netlify/functions/stripe-connect-refresh   302!
 /stripe/onboarding-complete   /stripe/onboarding-complete.html             200
 /api/reviews              /.netlify/functions/reviews              200
@@ -26,6 +30,7 @@
 
 /api/auth/login           /.netlify/functions/auth-login           200
 /api/auth/set-password    /.netlify/functions/auth-set-password    200
+/api/auth/change-password /.netlify/functions/auth-change-password 200
 /api/auth/logout          /.netlify/functions/auth-logout          200
 /api/auth/me              /.netlify/functions/auth-me              200
 /api/auth/request-access  /.netlify/functions/auth-request-access  200

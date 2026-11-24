@@ -1,6 +1,7 @@
 // /api/categories — public read-only list of active categories.
 
 import { ensureCategorySeeded, categoryStore, json } from './_lib/store.mjs';
+import { isUnavailableOffering } from './_lib/public-availability.mjs';
 
 export default async () => {
   await ensureCategorySeeded();
@@ -10,7 +11,7 @@ export default async () => {
   for (const b of blobs) {
     if (b.key.startsWith('_')) continue;
     const c = await store.get(b.key, { type: 'json' });
-    if (c && !c.archived) out.push({ ...c, id: c.id || b.key });
+    if (c && !c.archived && !isUnavailableOffering({ ...c, id: c.id || b.key })) out.push({ ...c, id: c.id || b.key });
   }
   out.sort((a, b) => (a.sort_order ?? 100) - (b.sort_order ?? 100));
   return json(out, 200, {

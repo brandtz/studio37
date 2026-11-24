@@ -2,13 +2,25 @@
    Handles auth forms only. On success, redirects to /admin/dashboard. */
 (() => {
   const TOKEN_KEY = 'studio37_session_token';
+  // Keep the email credential only in this closure, never storage or DOM attributes.
+  const fragment = new URLSearchParams(window.location.hash.slice(1));
+  const hasSetupLink = fragment.has('setup');
+  let setupToken = fragment.get('setup') || '';
+  if (window.location.hash) {
+    history.replaceState({}, '', window.location.pathname + window.location.search);
+  }
+  if (setupToken.length > 2048 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(setupToken)) setupToken = '';
 
   async function unauthApi(path, opts = {}) {
     const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
-    const r = await fetch(path, Object.assign({}, opts, { headers }));
-    let body = null;
-    try { body = await r.json(); } catch { /* ignore */ }
-    return { ok: r.ok, status: r.status, body };
+    try {
+      const r = await fetch(path, Object.assign({}, opts, { headers, cache: 'no-store', referrerPolicy: 'no-referrer' }));
+      let body = null;
+      try { body = await r.json(); } catch { /* ignore */ }
+      return { ok: r.ok, status: r.status, body };
+    } catch {
+      return { ok: false, status: 0, body: { message: 'Connection failed. Please try again.' } };
+    }
   }
 
   function setSession(token) {
@@ -23,7 +35,7 @@
   const $ = (s) => document.querySelector(s);
 
   function showPanel(name) {
-    ['signin', 'setpass', 'request'].forEach((p) => {
+    ['signin', 'setpass', 'request', 'setup-request'].forEach((p) => {
       const el = $(`[data-panel="${p}"]`);
       if (el) el.hidden = p !== name;
     });
@@ -48,7 +60,10 @@
   })();
 
   // ── Already authenticated? Go straight to dashboard. ──
-  if (sessionStorage.getItem(TOKEN_KEY)) {
+  if (hasSetupLink) {
+    showPanel('setpass');
+    if (!setupToken) $('#setpass-error').textContent = 'This setup link is invalid. Request a new link below.';
+  } else if (sessionStorage.getItem(TOKEN_KEY)) {
     window.location.replace('/admin/dashboard');
   }
 
@@ -64,31 +79,22 @@
       body: JSON.stringify({ email, password }),
     });
 
-    if (res.ok && res.body?.firstLogin) {
-      $('#setpass-email').textContent = res.body.email;
-      $('#setpass-form').dataset.setupToken = res.body.setupToken;
-      $('#setpass-form').dataset.email = res.body.email;
-      $('#setpass1').value = '';
-      $('#setpass2').value = '';
-      $('#setpass-error').textContent = '';
-      showPanel('setpass');
-      return;
-    }
-
     if (res.ok && res.body?.token) {
       setSession(res.body.token);
       window.location.replace('/admin/dashboard');
       return;
     }
 
-    if (res.status === 400 && res.body?.error === 'password_required') {
+    if (res.status === 0 || res.status === 429 || res.status === 503) {
+      $('#login-error').textContent = res.body?.message || 'Too many attempts. Please try again later.';
+    } else if (res.status === 400 && res.body?.error === 'password_required') {
       $('#login-error').textContent = 'Please enter your password.';
     } else if (res.status === 403 && res.body?.error === 'pending') {
       $('#login-error').textContent = 'Your account is pending approval.';
     } else if (res.status === 403 && res.body?.error === 'disabled') {
       $('#login-error').textContent = 'Account disabled. Contact the site owner.';
     } else {
-      $('#login-error').textContent = 'Email or password is incorrect.';
+      $('#login-error').textContent = 'Email or password is incorrect. If you have not set a password, request an emailed setup link below.';
     }
     const card = $('#login-form');
     card.classList.remove('shake');
@@ -96,33 +102,78 @@
     card.classList.add('shake');
   });
 
-  // ── Set-password form (first login) ────────────────────
+  // ── Set-password form (email link only) ────────────────
   $('#setpass-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const setupToken = $('#setpass-form').dataset.setupToken;
     const p1 = $('#setpass1').value;
     const p2 = $('#setpass2').value;
     const errEl = $('#setpass-error');
     errEl.textContent = '';
 
+    if (!setupToken) { errEl.textContent = 'Open your emailed setup link, or request a new one below.'; return; }
     if (p1.length < 8) { errEl.textContent = 'Password must be at least 8 characters.'; return; }
+    if (new TextEncoder().encode(p1).length > 72) { errEl.textContent = 'Password must be at most 72 UTF-8 bytes.'; return; }
     if (p1 !== p2)    { errEl.textContent = 'Passwords do not match.'; return; }
 
+    const button = $('#setpass-form button[type="submit"]');
+    if (button.disabled) return;
+    button.disabled = true;
     const res = await unauthApi('/api/auth/set-password', {
       method: 'POST',
       body: JSON.stringify({ setupToken, password: p1 }),
     });
+    button.disabled = false;
 
     if (res.ok && res.body?.token) {
+      setupToken = '';
+      $('#setpass1').value = '';
+      $('#setpass2').value = '';
       setSession(res.body.token);
       window.location.replace('/admin/dashboard');
       return;
     }
-    errEl.textContent = res.body?.message || res.body?.error || 'Could not set password. Please sign in again.';
-    setTimeout(() => showPanel('signin'), 2000);
+    if (res.status === 401 || res.status === 409) {
+      setupToken = '';
+      errEl.textContent = 'This link is invalid, expired, or already used. Sign in if setup is complete, or request a new link below.';
+    } else {
+      errEl.textContent = res.body?.message || 'Could not complete setup. Try signing in or request a new link.';
+    }
   });
 
   // ── Panel navigation ────────────────────────────────────
+  function requestSetup(e) {
+    e.preventDefault();
+    setupToken = '';
+    $('#setpass1').value = '';
+    $('#setpass2').value = '';
+    $('#setupEmail').value = $('#loginEmail').value;
+    $('#setup-request-message').textContent = '';
+    showPanel('setup-request');
+  }
+  $('#show-password-setup').addEventListener('click', requestSetup);
+  $('#request-new-setup').addEventListener('click', requestSetup);
+  document.querySelectorAll('[data-back-signin]').forEach((link) => link.addEventListener('click', (e) => {
+    e.preventDefault();
+    setupToken = '';
+    $('#setpass1').value = '';
+    $('#setpass2').value = '';
+    showPanel('signin');
+  }));
+
+  $('#setup-request-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const button = $('#setup-request-form button[type="submit"]');
+    if (button.disabled) return;
+    button.disabled = true;
+    $('#setup-request-message').textContent = 'Requesting setup link…';
+    // Use the native function route; no new redirect/configuration is required.
+    const res = await unauthApi('/.netlify/functions/auth-request-password-setup', {
+      method: 'POST',
+      body: JSON.stringify({ email: $('#setupEmail').value.trim().toLowerCase() }),
+    });
+    button.disabled = false;
+    $('#setup-request-message').textContent = res.body?.message || 'Could not request a link. Please try again later.';
+  });
   $('#show-request-access').addEventListener('click', (e) => {
     e.preventDefault();
     $('#request-error').textContent = '';

@@ -4,21 +4,13 @@
 
 import { leadStore, json, nowIso } from './_lib/store.mjs';
 import { checkRateLimit, clientIp } from './_lib/rate-limit.mjs';
-import { sendLeadNotification, sendLeadAcknowledgement } from './_lib/email.mjs';
+import { prepareQuoteEmailSnapshots } from './_lib/email.mjs';
+import { processQuoteEmails } from './_lib/quote-email-retry.mjs';
 import { r2Configured, uploadBufferToR2 } from './_lib/r2.mjs';
-import quoteOptions from '../../assets/js/quote-options.js';
+import { readQuoteForm, quoteChoiceMaps } from './_lib/quote-form.mjs';
+import quoteForm from '../../assets/js/quote-form-schema.js';
 import twilio from 'twilio';
-
-const { serviceGroups, serviceLabels, customerTypes, homeGoods } = quoteOptions;
-const allowedServices = new Set(['other', ...serviceGroups.flatMap((group) => group.options.map(([value]) => value))]);
-
-const BUDGET_LABEL = {
-  'under-500': 'Under $500',
-  '500-2000': '$500–$2K',
-  '2000-5000': '$2K–$5K',
-  '5000-plus': '$5K+',
-  'not-sure': 'Not sure',
-};
+import { randomUUID } from 'node:crypto';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_DESCRIPTION = 5000;
@@ -34,7 +26,8 @@ const PHOTO_MIME_EXT = {
   'image/gif': 'gif',
 };
 
-export default async (req) => {
+export function createQuoteRequestHandler({ readPresentation = readQuoteForm } = {}) {
+return async (req) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
   const ip = clientIp(req);
@@ -77,9 +70,31 @@ export default async (req) => {
   const state = fields.state.trim().toUpperCase();
   const service = fields.service.trim();
   const hasDeadline = fields.hasDeadline.trim();
-  if (!Object.hasOwn(customerTypes, customerType)) return json({ error: 'invalid_customer_type' }, 400);
+  let presentation;
+  let choices;
+  try {
+    presentation = await readPresentation();
+    choices = quoteChoiceMaps(presentation);
+  } catch {
+    console.error('[quote-form] published configuration read failed');
+    return json({ error: 'quote_form_unavailable' }, 503);
+  }
+  if (fields.quoteSchema !== undefined &&
+      (fields.quoteSchema !== presentation.schema || fields.quoteRevision !== (presentation.revision || ''))) {
+    return json({ error: 'quote_form_changed' }, 409);
+  }
+  if (!choices.customerType.has(customerType)) return json({ error: 'invalid_customer_type' }, 400);
   if (!/^[A-Z]{2}$/.test(state)) return json({ error: 'invalid_state' }, 400);
-  if (!allowedServices.has(service)) return json({ error: 'invalid_service' }, 400);
+  if (['saunas', 'outdoor-sauna'].includes(service) || !choices.service.has(service)) return json({ error: 'invalid_service' }, 400);
+  for (const name of ['budget', 'referral']) {
+    if (fields[name] !== undefined && (typeof fields[name] !== 'string' || (fields[name].trim() && !choices[name].has(fields[name].trim())))) {
+      return json({ error: 'invalid_' + name }, 400);
+    }
+  }
+  if (fields.contactMethod !== undefined && (typeof fields.contactMethod !== 'string' ||
+      (fields.contactMethod.trim() && !['phone', 'text', 'email'].includes(fields.contactMethod.trim())))) {
+    return json({ error: 'invalid_contact_method' }, 400);
+  }
   if (hasDeadline !== 'yes' && hasDeadline !== 'no') return json({ error: 'invalid_deadline' }, 400);
   const deadlineDate = hasDeadline === 'yes' ? String(fields.deadlineDate || '').trim() : '';
   if (hasDeadline === 'yes') {
@@ -89,6 +104,8 @@ export default async (req) => {
     }
   }
   const engravingAddon = fields.engravingAddon === 'yes' || fields.engravingAddon === true;
+  const homeGoods = quoteForm.parseChoices('service', presentation.values['choices-service'])
+    .filter((row) => row.group === 'home-goods').map((row) => row.id);
   if (engravingAddon && !homeGoods.includes(service)) return json({ error: 'invalid_engraving' }, 400);
 
   // Validate reference photos server-side (client limits are cosmetic only).
@@ -118,7 +135,7 @@ export default async (req) => {
   const trim = (s, max) => String(s || '').trim().slice(0, max);
   const city = trim(fields.city, MAX_FIELD);
   const lead = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: `${Date.now()}-${randomUUID()}`,
     created_at: nowIso(),
     firstName: trim(fields.firstName, MAX_NAME),
     lastName: trim(fields.lastName, MAX_NAME),
@@ -160,7 +177,25 @@ export default async (req) => {
     }
   }
 
-  // Persist
+  // Pre-resolve human labels once and share with both email helpers + SMS.
+  const labels = {
+    service: choices.service.get(lead.service),
+    budget: choices.budget.get(lead.budget) || '',
+    customerType: choices.customerType.get(lead.customerType),
+    referral: choices.referral.get(lead.referral) || '',
+    contactMethod: ({ phone: 'Phone Call', text: 'Text Message', email: 'Email' })[lead.contactMethod] || '',
+    deadline: lead.hasDeadline === 'yes'
+      ? `Yes, by ${new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${lead.deadlineDate}T00:00:00Z`))}`
+      : 'No',
+  };
+  lead.quotePresentation = { version: 1, schema: presentation.schema, revision: presentation.revision, labels };
+
+  // Persist the immutable email payloads with the lead, before any send.
+  lead.quoteEmails = {
+    version: 1,
+    queuedAt: Date.now(),
+    ...await prepareQuoteEmailSnapshots(lead, labels),
+  };
   try {
     await leadStore().setJSON(lead.id, lead);
   } catch (e) {
@@ -168,28 +203,11 @@ export default async (req) => {
     return json({ error: 'lead_save_failed' }, 503);
   }
 
-  // Pre-resolve human labels once and share with both email helpers + SMS.
-  const labels = {
-    service: serviceLabels[lead.service] || lead.service,
-    budget: lead.budget ? (BUDGET_LABEL[lead.budget] || lead.budget) : '',
-    customerType: customerTypes[lead.customerType],
-    deadline: lead.hasDeadline === 'yes'
-      ? `Yes, by ${new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${lead.deadlineDate}T00:00:00Z`))}`
-      : 'No',
-  };
-
-  // Email Drew (best-effort — don't fail the request if Resend errors).
+  // Once persisted, email failures must not ask the customer to resubmit.
   try {
-    await sendLeadNotification(lead, labels);
-  } catch (e) {
-    console.error('lead notify email failed', e);
-  }
-
-  // Email the customer a receipt (best-effort).
-  try {
-    await sendLeadAcknowledgement(lead, labels);
-  } catch (e) {
-    console.error('lead acknowledgement email failed', e);
+    await processQuoteEmails(lead);
+  } catch {
+    console.error('quote email processing failed');
   }
 
   // Send SMS to Drew (best-effort — don't fail the request if Twilio errors).
@@ -219,5 +237,8 @@ export default async (req) => {
 
   return json({ ok: true, id: lead.id });
 };
+}
+
+export default createQuoteRequestHandler();
 
 export const config = { path: '/.netlify/functions/quote-request' };

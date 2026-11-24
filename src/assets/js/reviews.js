@@ -6,6 +6,14 @@
 (function () {
   const grid = document.getElementById('reviews-grid');
   const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
+  const copy = Object.fromEntries(Studio37ContentSchema['dynamic-copy'].fields.map((field) => [field.id, field.default]));
+  let currentReviews = null;
+  Studio37Content.loadScope('dynamic-copy').then((values) => {
+    Object.assign(copy, values);
+    if (currentReviews) render(currentReviews);
+    const submit = document.querySelector('#review-form button[type="submit"]');
+    if (submit && !submit.disabled) submit.textContent = copy['reviews-submit'];
+  });
 
   function escape(s) {
     return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -13,13 +21,14 @@
 
   function render(items) {
     if (!grid) return;
+    currentReviews = items;
     if (!items.length) {
-      grid.innerHTML = `<p class="reviews-empty" style="grid-column:1/-1;text-align:center;color:var(--color-text-muted);padding:var(--space-8) 0;">No reviews yet — be the first to share your experience below.</p>`;
+      grid.innerHTML = `<p class="reviews-empty" style="grid-column:1/-1;text-align:center;color:var(--color-text-muted);padding:var(--space-8) 0;">${escape(copy['reviews-empty'])}</p>`;
       return;
     }
     grid.innerHTML = items.map((r) => `
       <div class="review-card-full">
-        <div class="review-stars" aria-label="${r.stars} out of 5 stars">${stars(r.stars)}</div>
+        <div class="review-stars" aria-label="${r.stars} ${escape(copy['reviews-star-label'])}">${stars(r.stars)}</div>
         <p class="review-text">${escape(r.text)}</p>
         <p class="review-byline"><strong>${escape(r.name)}</strong> &mdash; ${escape(r.location || '')}</p>
         ${r.project ? `<p style="font-size:var(--text-xs);color:var(--color-accent);letter-spacing:0.08em;text-transform:uppercase;margin-top:var(--space-1);">${escape(r.project)}</p>` : ''}
@@ -46,7 +55,7 @@
 
     const submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Sending…';
+    submitBtn.textContent = copy['reviews-sending'];
 
     const body = {
       name: form.querySelector('#review-name').value,
@@ -67,9 +76,9 @@
       if (success) success.hidden = false;
     } catch (err) {
       console.error('Review submission failed', err);
-      alert('Something went wrong sending your review. Please try again in a moment.');
+      alert(copy['reviews-error']);
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Submit Review';
+      submitBtn.textContent = copy['reviews-submit'];
     }
   });
 }());

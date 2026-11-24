@@ -98,9 +98,10 @@ async function onPaymentIntentSucceeded(pi, connectedAccount) {
   if (res.action === 'imported') {
     console.log('[stripe-webhook] imported payment as order via payment_intent.succeeded', res.order.id, res.order.source);
     await maybeSendOrderSms(res.order);
-    await maybeSendOrderEmail(res.order);
+    await maybeSendOrderEmails(res.order);
+    return;
   }
-  if (res.order) await maybeSendOrderNotification(res.order);
+  if (res.order) await maybeSendOrderEmails(res.order);
 }
 
 async function onCheckoutComplete(session, connectedAccount) {
@@ -118,8 +119,7 @@ async function onCheckoutComplete(session, connectedAccount) {
     }
     // Order persisted previously but a notification hadn't yet succeeded — retry only the missing pieces.
     await maybeSendOrderSms(existing);
-    await maybeSendOrderEmail(existing);
-    await maybeSendOrderNotification(existing);
+    await maybeSendOrderEmails(existing);
     return;
   }
 
@@ -176,8 +176,14 @@ async function onCheckoutComplete(session, connectedAccount) {
   await orderStore().setJSON(order.id, order);
 
   await maybeSendOrderSms(order);
-  await maybeSendOrderEmail(order);
-  await maybeSendOrderNotification(order);
+  await maybeSendOrderEmails(order);
+}
+
+async function maybeSendOrderEmails(order) {
+  let failure;
+  try { await maybeSendOrderEmail(order); } catch (error) { failure = error; }
+  try { await maybeSendOrderNotification(order); } catch (error) { failure ||= error; }
+  if (failure) throw failure;
 }
 
 async function maybeSendOrderNotification(order) {
@@ -227,10 +233,10 @@ async function maybeSendOrderSms(order) {
 
 async function maybeSendOrderEmail(order) {
   if (order.email_sent) return;
-  if (!order.customer_email) return;
 
   const result = await sendOrderConfirmation(order);
-  if (!result.ok) return;
+  if (result.skipped && result.error === 'no_recipient') return;
+  if (!result.ok) throw new Error(`order confirmation failed: ${result.error}`);
 
   try {
     const latest = (await orderStore().get(order.id, { type: 'json' })) || order;
@@ -240,8 +246,8 @@ async function maybeSendOrderEmail(order) {
       email_sent_at: new Date().toISOString(),
       email_id: result.id || null,
     });
-  } catch (err) {
-    console.warn('[stripe-webhook] could not flag email_sent', err?.message);
+  } catch {
+    throw new Error('Could not persist order confirmation sent marker');
   }
 }
 

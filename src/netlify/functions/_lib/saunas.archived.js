@@ -1,4 +1,4 @@
-/* Studio 37 — Saunas page: fetch sauna kit products, render cards. */
+/* Private historical renderer; excluded from the public build until this offer returns. */
 (() => {
   const grid = document.getElementById('sauna-kit-grid');
   if (!grid) return;

@@ -19,8 +19,11 @@
   <link rel="stylesheet" href="/assets/css/tokens.css" />
   <link rel="stylesheet" href="/assets/css/site.css" />
   <script defer src="/assets/js/site.js"></script>
+  <script defer src="/assets/js/content-schema.js"></script>
+  <script defer src="/assets/js/content.js"></script>
   <script defer src="/assets/js/cart.js"></script>
   <script defer src="/assets/js/quote-options.js"></script>
+  <script defer src="/assets/js/quote-form-schema.js"></script>
   <script defer src="/assets/js/contact.js"></script>
 </head>
 <body class="grain">
@@ -147,8 +150,8 @@
       </div>
 
       <div class="form-field">
-        <span class="form-label">Preferred contact method</span>
-        <div class="pill-group">
+        <span class="form-label" id="contact-method-label">Preferred contact method</span>
+        <div class="pill-group" role="group" aria-labelledby="contact-method-label">
           <label class="pill-radio"><input type="radio" name="contactMethod" value="phone" /><span>Phone Call</span></label>
           <label class="pill-radio"><input type="radio" name="contactMethod" value="text" checked /><span>Text Message</span></label>
           <label class="pill-radio"><input type="radio" name="contactMethod" value="email" /><span>Email</span></label>
@@ -170,12 +173,13 @@
       <div class="form-field">
         <span class="form-label">Optional: Attach picture of installation location or space being considered.</span>
         <label class="upload-zone" id="upload-zone">
-          <input type="file" name="photos" id="photos" accept="image/*" multiple style="display:none;" />
+          <input type="file" name="photos" id="photos" accept="image/*" multiple class="quote-file-input" />
           <span>Click to upload, or drag &amp; drop &mdash; up to 3 images, 10&nbsp;MB each</span>
         </label>
         <ul id="upload-list" style="list-style:none;margin-top:var(--space-2);font-size:var(--text-sm);color:var(--color-text-muted);"></ul>
       </div>
 
+      <p id="quote-form-status" role="status" aria-live="polite" class="quote-helper"></p>
       <button class="btn-primary" type="submit" style="width:100%;justify-content:center;">
         Send My Request &rarr;
       </button>

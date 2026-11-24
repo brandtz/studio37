@@ -8,6 +8,7 @@ import seedCategories from './categories.seed.json' with { type: 'json' };
 
 export const PRODUCT_STORE = 'products';
 export const LEAD_STORE = 'leads';
+export const QUOTE_EMAIL_STORE = 'quote_email_attempts';
 export const REVIEW_STORE = 'reviews';
 export const USER_STORE = 'users';
 export const CATEGORY_STORE = 'categories';
@@ -32,6 +33,10 @@ export function productStore() {
 
 export function leadStore() {
   return getStore({ name: LEAD_STORE, consistency: 'strong' });
+}
+
+export function quoteEmailStore() {
+  return getStore({ name: QUOTE_EMAIL_STORE, consistency: 'strong' });
 }
 
 export function reviewStore() {
