@@ -82,21 +82,22 @@ These items must be complete before the domain points to Netlify and real traffi
 **Blocking:** All transactional email — lead notifications to Drew, customer acknowledgements, order confirmations
 
 **Background:**  
-`email.mjs` is coded and deployed. Resend will reject sends from `orders@studio37customdesigns.com` until the domain is verified in the Resend dashboard.
+Verify the current production setup rather than assuming this older checklist reflects its status. The quote handler sends Drew a notification and the customer an acknowledgement. The Stripe webhook sends Drew an order/payment notification and sends a separate customer receipt for online checkouts. These code changes must be deployed before the new payment notifications are live.
+
+On November 23, 2026, Matthew reported that the Resend domain was verified and `RESEND_API_KEY` was saved in the production Netlify site. The existing connected-account Stripe destination has the required events; no recent deliveries were available to verify it.
+
+Set `RESEND_API_KEY` in Netlify for the Functions runtime, and optionally set `RESEND_FROM`, `RESEND_REPLY_TO`, `LEAD_NOTIFY_TO`, and `ORDER_NOTIFY_TO`. The recipient overrides default to Drew's email; the default sender is `orders@studio37customdesigns.com`. Never put API keys in the repository or a chat message.
+
+Stripe event delivery and its connected-account webhook must also be configured. Failed owner-notification sends return a webhook error so Stripe can retry, with a Resend idempotency key to reduce duplicates. Existing and historical orders are not emailed retroactively. Quote submissions remain saved when email fails; failures are logged but quote emails are not automatically retried. Resend accepting an email does not guarantee inbox delivery, so check its delivery activity as well.
 
 **Steps:**
 1. Log into resend.com → Domains → Add domain → `studio37customdesigns.com`
-2. Resend will produce up to 3 DNS records (DKIM, SPF, DMARC)
-3. Log into Wix DNS panel (Drew's credentials) for `studio37customdesigns.com`
-4. Add DKIM record (`resend._domainkey` TXT — no conflict risk)
-5. Add DMARC record (`_dmarc` TXT — no conflict risk)
-6. **Carefully** merge Resend's SPF into the existing Google Workspace SPF — do NOT add a second `v=spf1` record; it must be merged into the one that already includes `_spf.google.com`
-7. Return to Resend → click Verify — status should go green within 5–30 minutes
-8. Set Netlify env vars: `RESEND_API_KEY`, `RESEND_FROM`, `RESEND_REPLY_TO`
-9. Trigger a Netlify redeploy
-10. Smoke test: submit contact form → Drew receives email → customer receives "request received" email
+2. Check the DNS records Resend currently requires against the existing authoritative DNS records; do not overwrite existing Google mail records or add duplicate SPF/DMARC records.
+3. Add or update only the required DNS records, then verify the domain in Resend.
+4. Configure the Netlify environment variables and deploy the changes.
+5. With permission, submit a controlled quote and verify Drew's notification, the customer receipt, and Resend delivery activity. Test a Stripe test-mode transaction only in an isolated test deployment with test keys, a separate webhook and data store, and a test notification recipient. Live deployments ignore Stripe test events. Verify the live Stripe webhook on a genuine authorized transaction.
 
-**Risk:** If Google Workspace SPF is overwritten (not merged), Drew's outgoing Gmail may go to spam. Merge only; never replace.
+**Risk:** Changing or duplicating existing Google Workspace DNS records can disrupt mail delivery. Check the actual DNS configuration and Resend's current instructions before making changes.
 
 ---
 

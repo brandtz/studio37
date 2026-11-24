@@ -33,7 +33,7 @@ async function findCheckoutSessionForPaymentIntent(paymentIntentId, stripeAccoun
   }
 }
 
-function buildStandaloneOrder(pi, tenantId, stripeAccountId) {
+function buildStandaloneOrder(pi, tenantId, stripeAccountId, { historicalImport = false } = {}) {
   const nowIso = new Date().toISOString();
   const createdIso = new Date((pi.created || Math.floor(Date.now() / 1000)) * 1000).toISOString();
   const charge = pi.latest_charge && typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
@@ -71,13 +71,15 @@ function buildStandaloneOrder(pi, tenantId, stripeAccountId) {
     tracking_carrier: null,
     internal_notes: '',
     status_history: [{ stage: 'complete', at: nowIso, by: 'system (in-person Stripe payment)' }],
-    // Not applicable to in-person sales — mark as handled so nothing tries
-    // to notify Drew about a sale he was standing right there for.
+    // Keep existing SMS and customer-receipt behavior for in-person sales.
     sms_sent: true,
     sms_sent_at: nowIso,
     email_sent: true,
     email_sent_at: nowIso,
     email_id: null,
+    owner_email_sent: historicalImport,
+    owner_email_sent_at: historicalImport ? nowIso : null,
+    owner_email_id: null,
   };
 }
 
@@ -142,6 +144,9 @@ export async function buildOrderFromCheckoutSession(session, stripeAccountId, { 
     email_sent: historicalImport,
     email_sent_at: historicalImport ? nowIso : null,
     email_id: null,
+    owner_email_sent: historicalImport,
+    owner_email_sent_at: historicalImport ? nowIso : null,
+    owner_email_id: null,
   };
 }
 
@@ -162,8 +167,8 @@ export async function importPaymentIntentAsOrder(pi, tenantId, stripeAccountId, 
   const store = orderStore();
 
   // Already imported as a standalone record — idempotent against retries.
-  const existingStandalone = await store.get(pi.id, { type: 'json' }).catch(() => null);
-  if (existingStandalone) return { action: 'skipped', reason: 'already_imported' };
+  const existingStandalone = await store.get(pi.id, { type: 'json' });
+  if (existingStandalone) return { action: 'skipped', reason: 'already_imported', order: existingStandalone };
 
   const session = await findCheckoutSessionForPaymentIntent(pi.id, stripeAccountId);
 
@@ -175,8 +180,8 @@ export async function importPaymentIntentAsOrder(pi, tenantId, stripeAccountId, 
 
   if (session) {
     // Belongs to a Checkout Session — check whether THAT order already exists.
-    const existingSessionOrder = await store.get(session.id, { type: 'json' }).catch(() => null);
-    if (existingSessionOrder) return { action: 'skipped', reason: 'has_checkout_session' };
+    const existingSessionOrder = await store.get(session.id, { type: 'json' });
+    if (existingSessionOrder) return { action: 'skipped', reason: 'has_checkout_session', order: existingSessionOrder };
 
     const order = await buildOrderFromCheckoutSession(session, stripeAccountId, { historicalImport });
     await store.setJSON(order.id, order);
@@ -184,7 +189,7 @@ export async function importPaymentIntentAsOrder(pi, tenantId, stripeAccountId, 
   }
 
   // No Checkout Session anywhere — a genuine standalone in-person charge.
-  const order = buildStandaloneOrder(pi, tenantId, stripeAccountId);
+  const order = buildStandaloneOrder(pi, tenantId, stripeAccountId, { historicalImport });
   await store.setJSON(order.id, order);
   return { action: 'imported', order };
 }

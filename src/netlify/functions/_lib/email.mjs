@@ -6,11 +6,14 @@
 //   RESEND_API_KEY     required — Production API key from resend.com
 //   RESEND_FROM        optional — defaults to "Studio 37 Custom Designs <orders@studio37customdesigns.com>"
 //   RESEND_REPLY_TO    optional — defaults to "Drew@studio37customdesigns.com"
+//   LEAD_NOTIFY_TO     optional — defaults to Drew's email
+//   ORDER_NOTIFY_TO    optional — defaults to Drew's email
 
 import { Resend } from 'resend';
 
 const DEFAULT_FROM = 'Studio 37 Custom Designs <orders@studio37customdesigns.com>';
 const DEFAULT_REPLY_TO = 'Drew@studio37customdesigns.com';
+const DREW_NOTIFY_TO = 'Drew@studio37customdesigns.com';
 
 function client() {
   const key = process.env.RESEND_API_KEY;
@@ -175,10 +178,75 @@ export async function sendOrderConfirmation(order) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Lead / quote-request emails
+// Order notifications
 // ──────────────────────────────────────────────────────────────────────────────
 
-const DREW_NOTIFY_TO = 'Drew@studio37customdesigns.com';
+/**
+ * Notify Drew of a new order or payment, independently of the customer receipt.
+ */
+export async function sendOrderNotification(order) {
+  const resend = client();
+  if (!resend) {
+    console.warn('[email] RESEND_API_KEY not set — skipping order notification');
+    return { ok: false, skipped: true, error: 'no_api_key' };
+  }
+
+  const currency = order.currency || 'usd';
+  const total = fmtMoney(order.amount_total, currency);
+  const title = order.source === 'stripe_direct' ? 'New Studio 37 payment' : 'New Studio 37 order';
+  const rows = [
+    ['Order', order.id],
+    ['Customer', order.customer_name || 'Not provided'],
+    ['Email', order.customer_email || 'Not provided'],
+    ['Phone', order.customer_phone || 'Not provided'],
+    ['Total', total || 'Not available'],
+    ['Payment status', order.payment_status || 'Unknown'],
+  ];
+  const rowsHtml = rows.map(([key, value]) =>
+    `<tr><td style="padding:6px 12px 6px 0;color:#6e6055;">${escapeHtml(key)}</td><td style="padding:6px 0;">${escapeHtml(value)}</td></tr>`,
+  ).join('');
+  const html = `<html><body style="font-family:Georgia,serif;color:#3a322a;">
+    <h1>${title}</h1>
+    <table role="presentation">${rowsHtml}</table>
+    ${renderItemsHtml(order.items, currency)}
+    <p><a href="https://studio37customdesigns.com/admin">Open the admin dashboard to view orders</a></p>
+  </body></html>`;
+  const text = [
+    title,
+    ...rows.map(([key, value]) => `${key}: ${value}`),
+    renderItemsText(order.items, currency),
+    'View orders in the admin dashboard: https://studio37customdesigns.com/admin',
+  ].join('\n');
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM || DEFAULT_FROM,
+      to: process.env.ORDER_NOTIFY_TO || DREW_NOTIFY_TO,
+      reply_to: order.customer_email || (process.env.RESEND_REPLY_TO || DEFAULT_REPLY_TO),
+      subject: `${title} — #${shortId(order.id)}`,
+      html,
+      text,
+      headers: { 'X-Entity-Ref-ID': order.id },
+      tags: [{ name: 'type', value: 'order_notification' }],
+    }, { idempotencyKey: `order-notification/${order.id}` });
+    if (error) {
+      console.error('[email] order notification send error', error);
+      return { ok: false, error: error.message || 'send_failed' };
+    }
+    if (!data?.id) {
+      console.error('[email] order notification response missing message id');
+      return { ok: false, error: 'missing_message_id' };
+    }
+    return { ok: true, id: data.id };
+  } catch (err) {
+    console.error('[email] order notification exception', err);
+    return { ok: false, error: err?.message || 'exception' };
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Lead / quote-request emails
+// ──────────────────────────────────────────────────────────────────────────────
 
 function leadFullName(lead) {
   return `${lead?.firstName || ''} ${lead?.lastName || ''}`.trim() || 'Unknown';

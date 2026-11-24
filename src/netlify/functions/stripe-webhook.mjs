@@ -10,7 +10,7 @@
 import twilio from 'twilio';
 import { json } from './_lib/store.mjs';
 import { stripe, orderStore } from './_lib/stripe.mjs';
-import { sendOrderConfirmation } from './_lib/email.mjs';
+import { sendOrderConfirmation, sendOrderNotification } from './_lib/email.mjs';
 import { importPaymentIntentAsOrder } from './_lib/stripe-order-sync.mjs';
 
 export default async (req) => {
@@ -40,6 +40,16 @@ export default async (req) => {
   if (!evt) {
     console.warn('[stripe-webhook] signature verification failed against all configured secrets');
     return json({ error: 'invalid_signature' }, 400);
+  }
+
+  const stripeKey = process.env.STRIPE_SECRET_KEY || '';
+  if (evt.livemode === false && /^(sk|rk)_live_/.test(stripeKey)) {
+    console.log('[stripe-webhook] ignoring test event on live deployment', evt.type);
+    return json({ received: true });
+  }
+  if (evt.livemode === true && /^(sk|rk)_test_/.test(stripeKey)) {
+    console.error('[stripe-webhook] live event received with a test Stripe key');
+    return json({ error: 'stripe_mode_mismatch' }, 503);
   }
 
   // `evt.account` is set when the event came from a connected account.
@@ -75,30 +85,22 @@ export default async (req) => {
     }
   } catch (err) {
     console.error('[stripe-webhook] handler error', err);
-    // Return 200 so Stripe doesn't retry forever; we log for follow-up.
+    return json({ error: 'webhook_processing_failed' }, 500);
   }
 
   return json({ received: true });
 };
 
 async function onPaymentIntentSucceeded(pi, connectedAccount) {
-  try {
-    const tenantId = pi?.metadata?.tenant_id || 'studio37';
-    const res = await importPaymentIntentAsOrder(pi, tenantId, connectedAccount);
-    if (res.action === 'imported') {
-      console.log('[stripe-webhook] imported payment as order via payment_intent.succeeded', res.order.id, res.order.source);
-      // Handles the race against checkout.session.completed for the same
-      // transaction: whichever event processes first sends the notification
-      // and flips sms_sent/email_sent; the other sees those already true and
-      // skips (see the guard at the top of each maybe* function below).
-      // Standalone in-person orders already have these flags pre-set true in
-      // buildStandaloneOrder, so this is a no-op for those.
-      await maybeSendOrderSms(res.order);
-      await maybeSendOrderEmail(res.order);
-    }
-  } catch (err) {
-    console.error('[stripe-webhook] payment_intent.succeeded handling failed', err);
+  const tenantId = pi?.metadata?.tenant_id || 'studio37';
+  const res = await importPaymentIntentAsOrder(pi, tenantId, connectedAccount);
+  if (res.reason === 'lookup_failed') throw new Error('Stripe checkout session lookup failed');
+  if (res.action === 'imported') {
+    console.log('[stripe-webhook] imported payment as order via payment_intent.succeeded', res.order.id, res.order.source);
+    await maybeSendOrderSms(res.order);
+    await maybeSendOrderEmail(res.order);
   }
+  if (res.order) await maybeSendOrderNotification(res.order);
 }
 
 async function onCheckoutComplete(session, connectedAccount) {
@@ -107,19 +109,17 @@ async function onCheckoutComplete(session, connectedAccount) {
   // IDEMPOTENCY: if we've already persisted this session, skip the heavy work.
   // Stripe will retry on 5xx/timeout — without this guard we'd duplicate orders
   // and double-text Drew.
-  let existing = null;
-  try {
-    existing = await orderStore().get(session.id, { type: 'json' });
-  } catch { /* treat as not-found */ }
+  const existing = await orderStore().get(session.id, { type: 'json' });
 
   if (existing && existing.id === session.id) {
-    if (existing.sms_sent && existing.email_sent) {
+    if (existing.sms_sent && existing.email_sent && existing.owner_email_sent !== false) {
       console.log('[stripe-webhook] duplicate event (already notified), skipping', session.id);
       return;
     }
     // Order persisted previously but a notification hadn't yet succeeded — retry only the missing pieces.
     await maybeSendOrderSms(existing);
     await maybeSendOrderEmail(existing);
+    await maybeSendOrderNotification(existing);
     return;
   }
 
@@ -168,16 +168,31 @@ async function onCheckoutComplete(session, connectedAccount) {
     email_sent: false,
     email_sent_at: null,
     email_id: null,
+    owner_email_sent: false,
+    owner_email_sent_at: null,
+    owner_email_id: null,
   };
 
-  try {
-    await orderStore().setJSON(order.id, order);
-  } catch (err) {
-    console.error('[stripe-webhook] persist order failed', err);
-  }
+  await orderStore().setJSON(order.id, order);
 
   await maybeSendOrderSms(order);
   await maybeSendOrderEmail(order);
+  await maybeSendOrderNotification(order);
+}
+
+async function maybeSendOrderNotification(order) {
+  // Older orders and historical imports must not generate retroactive emails.
+  if (order.owner_email_sent !== false) return;
+  const result = await sendOrderNotification(order);
+  if (!result.ok) throw new Error(`order notification failed: ${result.error}`);
+
+  const latest = (await orderStore().get(order.id, { type: 'json' })) || order;
+  await orderStore().setJSON(order.id, {
+    ...latest,
+    owner_email_sent: true,
+    owner_email_sent_at: new Date().toISOString(),
+    owner_email_id: result.id || null,
+  });
 }
 
 async function maybeSendOrderSms(order) {
