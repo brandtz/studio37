@@ -8,6 +8,7 @@ import { prepareQuoteEmailSnapshots } from './_lib/email.mjs';
 import { processQuoteEmails } from './_lib/quote-email-retry.mjs';
 import { r2Configured, uploadBufferToR2 } from './_lib/r2.mjs';
 import { readQuoteForm, quoteChoiceMaps } from './_lib/quote-form.mjs';
+import { quoteTurnstileConfig, verifyQuoteTurnstile } from './_lib/quote-antispam.mjs';
 import quoteForm from '../../assets/js/quote-form-schema.js';
 import twilio from 'twilio';
 import { randomUUID } from 'node:crypto';
@@ -59,7 +60,16 @@ return async (req) => {
   }
 
   // Honeypot — silently accept
-  if (fields['bot-field']) return json({ ok: true });
+  if (fields['bot-field'] || fields.website) return json({ ok: true });
+
+  try {
+    const { secretKey, hostnames } = quoteTurnstileConfig();
+    if (secretKey && !await verifyQuoteTurnstile(fields['cf-turnstile-response'], secretKey, hostnames)) {
+      return json({ error: 'verification_failed' }, 400);
+    }
+  } catch {
+    return json({ error: 'verification_unavailable' }, 503);
+  }
 
   const required = ['firstName', 'lastName', 'email', 'phone', 'customerType', 'city', 'state', 'hasDeadline', 'service', 'description'];
   for (const f of required) {

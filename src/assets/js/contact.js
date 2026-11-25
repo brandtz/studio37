@@ -10,6 +10,32 @@
   let presentation = { schema: quoteForm.definition.schema, revision: null, values: quoteForm.defaults() };
   const message = (name) => presentation.values['message-' + name];
   const sel = form.querySelector('#service');
+  let turnstileWidget = null;
+  let turnstileSiteKey = '';
+  let verificationSetupFailed = false;
+  const verificationFailedMessage = 'Please complete the verification and try again.';
+  const verificationUnavailableMessage = 'Verification is temporarily unavailable. Please try again or email Drew@studio37customdesigns.com.';
+  async function setupVerification(siteKey) {
+    if (!siteKey || turnstileWidget !== null) return;
+    try {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.append(script);
+      });
+      turnstileWidget = window.turnstile.render('#quote-verification', {
+        sitekey: siteKey,
+        action: 'quote_request',
+      });
+      verificationSetupFailed = false;
+    } catch (error) {
+      verificationSetupFailed = true;
+      console.error('Quote verification failed to load', error);
+      throw error;
+    }
+  }
   quoteForm.apply(presentation.values);
   async function refreshPresentation() {
     const response = await fetch('/.netlify/functions/quote-form-content', { cache: 'no-store' });
@@ -19,6 +45,8 @@
     quoteForm.apply(record.values);
     presentation = record;
     updateEngraving();
+    turnstileSiteKey = record.turnstileSiteKey || '';
+    await setupVerification(turnstileSiteKey);
   }
 
   const engravingField = document.getElementById('engraving-field');
@@ -87,7 +115,8 @@
     desc.value = updated;
   });
   const ready = refreshPresentation().then(prefillService).catch(() => {
-    document.getElementById('quote-form-status').textContent = message('defaults');
+    document.getElementById('quote-form-status').textContent = verificationSetupFailed
+      ? verificationUnavailableMessage : message('defaults');
   });
 
   // File picker UI
@@ -144,6 +173,10 @@
     submitBtn.textContent = message('sending');
 
     try {
+      if (verificationSetupFailed) throw new Error(verificationUnavailableMessage);
+      if (turnstileSiteKey && !window.turnstile.getResponse(turnstileWidget)) {
+        throw new Error(verificationFailedMessage);
+      }
       const fd = new FormData(form);
       fd.set('quoteSchema', presentation.schema);
       fd.set('quoteRevision', presentation.revision || '');
@@ -154,6 +187,12 @@
       if (!r.ok) {
         const body = await r.json().catch(() => ({}));
         if (body.error === 'quote_form_changed') await refreshPresentation();
+        if (body.error === 'verification_failed') {
+          throw new Error(turnstileWidget === null ? verificationUnavailableMessage : verificationFailedMessage);
+        }
+        if (body.error === 'verification_unavailable') {
+          throw new Error(verificationUnavailableMessage);
+        }
         const field = 'message-' + body.error;
         throw new Error(Object.hasOwn(presentation.values, field) ? presentation.values[field] : message('fallback'));
       }
@@ -164,8 +203,10 @@
       window.scrollTo({ top: success.offsetTop - 100, behavior: 'smooth' });
     } catch (err) {
       console.error('Quote submission failed', err);
+      if (turnstileWidget !== null) window.turnstile.reset(turnstileWidget);
       const status = document.getElementById('quote-form-status');
       const knownMessages = quoteForm.definition.fields.filter((field) => field.id.startsWith('message-')).map((field) => presentation.values[field.id]);
+      knownMessages.push(verificationFailedMessage, verificationUnavailableMessage);
       status.textContent = err.message && knownMessages.includes(err.message) ? err.message : message('fallback');
       status.tabIndex = -1;
       status.focus();

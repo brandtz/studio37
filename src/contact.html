@@ -55,6 +55,7 @@
       <input type="hidden" name="form-name" value="quote" />
       <p class="hp-field" style="display:none;">
         <label>Don't fill this out: <input name="bot-field" /></label>
+        <label>Website <input name="website" type="text" tabindex="-1" autocomplete="off" /></label>
       </p>
 
       <fieldset class="quote-fieldset">
@@ -179,6 +180,7 @@
         <ul id="upload-list" style="list-style:none;margin-top:var(--space-2);font-size:var(--text-sm);color:var(--color-text-muted);"></ul>
       </div>
 
+      <div id="quote-verification"></div>
       <p id="quote-form-status" role="status" aria-live="polite" class="quote-helper"></p>
       <button class="btn-primary" type="submit" style="width:100%;justify-content:center;">
         Send My Request &rarr;

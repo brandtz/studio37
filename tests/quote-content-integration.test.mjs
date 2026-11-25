@@ -51,7 +51,7 @@ function store() {
   };
 }
 
-test('quote submission displays the published validation message as plain text', async () => {
+test('quote form requires verification and displays the published validation message as plain text', async () => {
   const values = { ...quoteForm.defaults(), 'message-invalid_email': '<strong>Check your email</strong>' };
   const listeners = {};
   const status = { textContent: '', focus() {} };
@@ -78,23 +78,45 @@ test('quote submission displays the published validation message as plain text',
     'engraving-field': {}, 'deadline-field': {}, 'upload-zone': zone,
     photos: fileInput, 'upload-list': {},
   };
-  const document = { getElementById: (id) => elements[id] };
+  let token = '';
+  let rendered;
+  let resets = 0;
+  let submissions = 0;
+  const document = {
+    getElementById: (id) => elements[id],
+    createElement: () => ({}),
+    head: { append: (script) => script.onload() },
+  };
   const context = {
     document, location: { search: '' }, URLSearchParams, Date,
     window: {
       Studio37QuoteOptions: { serviceLabels: {} }, Studio37QuoteForm: { ...quoteForm, apply() {} },
       Studio37Content: { loadScope: async () => ({}) },
+      turnstile: {
+        render: (selector, options) => { rendered = { selector, options }; return 'widget'; },
+        getResponse: () => token,
+        reset: () => { resets++; },
+      },
     },
     FormData: class { set() {} },
     fetch: async (url) => url.includes('quote-form-content')
-      ? { ok: true, json: async () => ({ schema: quoteForm.definition.schema, revision: 'published', values }) }
-      : { ok: false, json: async () => ({ error: 'invalid_email' }) },
+      ? { ok: true, json: async () => ({ schema: quoteForm.definition.schema, revision: 'published', values, turnstileSiteKey: 'site-key' }) }
+      : (submissions++, { ok: false, json: async () => ({ error: 'invalid_email' }) }),
     console: { error() {} },
   };
   vm.runInNewContext(readFileSync('src/assets/js/contact.js', 'utf8'), context);
   await listeners.submit({ preventDefault() {} });
+  assert.equal(rendered.selector, '#quote-verification');
+  assert.equal(rendered.options.sitekey, 'site-key');
+  assert.equal(rendered.options.action, 'quote_request');
+  assert.equal(submissions, 0);
+  assert.equal(status.textContent, 'Please complete the verification and try again.');
+  token = 'verified-token';
+  await listeners.submit({ preventDefault() {} });
   assert.equal(status.textContent, '<strong>Check your email</strong>');
   assert.equal(button.disabled, false);
+  assert.equal(submissions, 1);
+  assert.equal(resets, 2);
 });
 
 test('CMS committed head drives both public quote presentation and submission; unpublished/removal edits cannot corrupt past leads', async () => {

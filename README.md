@@ -59,6 +59,27 @@ See [Content editor](docs/content-cms.md), [SEO content](docs/seo-cms.md) and
 
 See `.env.example`. All secrets live in Netlify dashboard environment variables — never in the repo.
 
+### Quote request spam protection
+
+The quote form uses honeypots and best-effort per-IP and per-email rate limits.
+For stronger protection, create a Cloudflare Turnstile widget for the site's
+hostnames and set `QUOTE_TURNSTILE_SITE_KEY` and `QUOTE_TURNSTILE_SECRET_KEY`
+as Netlify Function environment variables, then redeploy. The site key is
+public; keep the secret key private. Both must be set: an incomplete
+configuration rejects quote requests instead of bypassing verification.
+The backend accepts tokens for `studio37customdesigns.com` and
+`studio37customdesign.netlify.app` by default. To use different front-end
+hostnames, set `QUOTE_TURNSTILE_HOSTNAMES` to a comma-separated allowlist
+in the corresponding Netlify deploy context, and register those same
+hostnames in the widget. Never include local hostnames in production.
+With neither key set, Turnstile is disabled and the existing filters remain.
+For local development, use a separate real widget configured for the local
+hostname and set `QUOTE_TURNSTILE_HOSTNAMES` accordingly; Cloudflare's dummy
+test keys omit the action required by this form.
+Cloudflare verifies each response before a lead or notification is created.
+If verification is unavailable, visitors can use the email or phone listed on
+the contact page.
+
 Stripe onboarding refresh links are bound to the connected account and expire
 after 24 hours. If one expires, a super admin must generate a new onboarding
 link. Configure `SITE_URL` for the intended public origin.

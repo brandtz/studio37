@@ -82,9 +82,13 @@ function request(fields, photo = false) {
 }
 
 test('quote submission validates and carries details through mocked services', async (t) => {
-  const keys = ['RESEND_API_KEY', 'TWILIO_SID', 'TWILIO_TOKEN', 'TWILIO_FROM', 'DREW_PHONE'];
+  const keys = ['RESEND_API_KEY', 'TWILIO_SID', 'TWILIO_TOKEN', 'TWILIO_FROM', 'DREW_PHONE',
+    'QUOTE_TURNSTILE_SITE_KEY', 'QUOTE_TURNSTILE_SECRET_KEY', 'QUOTE_TURNSTILE_HOSTNAMES', 'CONTEXT'];
   const original = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
-  for (const key of keys) process.env[key] = 'test';
+  for (const key of keys.slice(0, 5)) process.env[key] = 'test';
+  delete process.env.QUOTE_TURNSTILE_SITE_KEY;
+  delete process.env.QUOTE_TURNSTILE_SECRET_KEY;
+  delete process.env.QUOTE_TURNSTILE_HOSTNAMES;
   t.after(() => {
     for (const key of keys) {
       if (original[key] === undefined) delete process.env[key];
@@ -261,5 +265,86 @@ test('quote submission validates and carries details through mocked services', a
     logger.mock.restore();
     presentationFails = false;
     presentation = { schema: quoteForm.definition.schema, revision: null, values: quoteForm.defaults() };
+  });
+
+  await t.test('honeypots stop notifications without creating leads', async () => {
+    const before = [saved.length, emails.length, messages.length];
+    for (const field of ['bot-field', 'website']) {
+      const response = await handler(request({ ...valid, [field]: 'spam' }));
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { ok: true });
+    }
+    assert.deepEqual([saved.length, emails.length, messages.length], before);
+  });
+
+  await t.test('Turnstile verification is required when configured and fails closed', async () => {
+    const before = [saved.length, emails.length, messages.length];
+    process.env.QUOTE_TURNSTILE_SITE_KEY = 'test-site';
+    const contentHandler = (await import('../src/netlify/functions/quote-form-content.mjs')).default;
+    assert.equal((await contentHandler(new Request('https://site.test/'))).status, 503);
+    let response = await handler(request(valid));
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error, 'verification_unavailable');
+    process.env.QUOTE_TURNSTILE_SECRET_KEY = 'test-secret';
+    const configResponse = await contentHandler(new Request('https://site.test/'));
+    const publicConfig = await configResponse.json();
+    assert.equal(publicConfig.turnstileSiteKey, 'test-site');
+    assert.ok(!JSON.stringify(publicConfig).includes('test-secret'));
+
+    let outcome = { success: true, action: 'quote_request', hostname: 'studio37customdesigns.com' };
+    const calls = [];
+    const fetchMock = mock.method(globalThis, 'fetch', async (url, options) => {
+      calls.push({ url, options });
+      if (outcome instanceof Error) throw outcome;
+      return Response.json(outcome);
+    });
+    try {
+      for (const token of ['', 'x'.repeat(2049)]) {
+        response = await handler(request({ ...valid, 'cf-turnstile-response': token }));
+        assert.equal(response.status, 400);
+        assert.equal((await response.json()).error, 'verification_failed');
+      }
+      assert.equal(calls.length, 0);
+      for (const invalid of [
+        { success: false, 'error-codes': ['timeout-or-duplicate'] },
+        { success: true, action: 'other_form', hostname: 'studio37customdesigns.com' },
+        { success: true, action: 'quote_request', hostname: 'untrusted.example' },
+        { success: true, action: 'quote_request' },
+      ]) {
+        outcome = invalid;
+        response = await handler(request({ ...valid, 'cf-turnstile-response': 'token' }));
+        assert.equal(response.status, 400);
+        assert.equal((await response.json()).error, 'verification_failed');
+      }
+      for (const unavailable of [
+        { success: false, 'error-codes': ['invalid-input-secret'] },
+        new Error('network failure'),
+        { unexpected: true },
+      ]) {
+        outcome = unavailable;
+        response = await handler(request({ ...valid, 'cf-turnstile-response': 'token' }));
+        assert.equal(response.status, 503);
+        assert.equal((await response.json()).error, 'verification_unavailable');
+      }
+      assert.deepEqual([saved.length, emails.length, messages.length], before);
+      process.env.CONTEXT = 'production';
+      process.env.QUOTE_TURNSTILE_HOSTNAMES = 'localhost';
+      response = await handler(request({ ...valid, 'cf-turnstile-response': 'token' }));
+      assert.equal(response.status, 503);
+      assert.equal((await response.json()).error, 'verification_unavailable');
+      delete process.env.QUOTE_TURNSTILE_HOSTNAMES;
+      outcome = { success: true, action: 'quote_request', hostname: 'studio37customdesigns.com' };
+      response = await handler(request({ ...valid, 'cf-turnstile-response': 'token' }));
+      assert.equal(response.status, 200);
+      assert.deepEqual(JSON.parse(calls.at(-1).options.body), { secret: 'test-secret', response: 'token' });
+      assert.equal(saved.length, before[0] + 1);
+      assert.equal(emails.length, before[1] + 2);
+      assert.equal(messages.length, before[2] + 1);
+    } finally {
+      fetchMock.mock.restore();
+      delete process.env.QUOTE_TURNSTILE_SITE_KEY;
+      delete process.env.QUOTE_TURNSTILE_SECRET_KEY;
+      delete process.env.QUOTE_TURNSTILE_HOSTNAMES;
+    }
   });
 });
