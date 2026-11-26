@@ -9,6 +9,7 @@ import { processQuoteEmails } from './_lib/quote-email-retry.mjs';
 import { r2Configured, uploadBufferToR2 } from './_lib/r2.mjs';
 import { readQuoteForm, quoteChoiceMaps } from './_lib/quote-form.mjs';
 import { quoteTurnstileConfig, verifyQuoteTurnstile } from './_lib/quote-antispam.mjs';
+import { sanitizeUtm, syncLeadToBackOffice } from './_lib/backoffice-leads.mjs';
 import quoteForm from '../../assets/js/quote-form-schema.js';
 import twilio from 'twilio';
 import { randomUUID } from 'node:crypto';
@@ -165,6 +166,8 @@ return async (req) => {
     referral: trim(fields.referral, 40),
     photos: [],
   };
+  const utm = sanitizeUtm(fields);
+  if (utm) lead.utm = utm;
 
   if (photoFiles.length) {
     if (r2Configured()) {
@@ -243,6 +246,15 @@ return async (req) => {
     }
   } catch (e) {
     console.error('twilio send failed', e);
+  }
+
+  // Back Office lead (best-effort — failures are queued and retried by
+  // backoffice-sync-retry; the customer never has to resubmit).
+  try {
+    const res = await syncLeadToBackOffice(lead.id, { record: lead, timeoutMs: 4000 });
+    if (res.status === 'failed' || res.status === 'unknown') console.warn('Back Office lead sync', res.status, res.error || '');
+  } catch {
+    console.error('Back Office lead sync failed');
   }
 
   return json({ ok: true, id: lead.id });

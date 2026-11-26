@@ -180,6 +180,12 @@
       const fd = new FormData(form);
       fd.set('quoteSchema', presentation.schema);
       fd.set('quoteRevision', presentation.revision || '');
+      try {
+        const utm = JSON.parse(sessionStorage.getItem('s37_utm') || '{}');
+        if (utm.utm_source) fd.set('utmSource', utm.utm_source);
+        if (utm.utm_medium) fd.set('utmMedium', utm.utm_medium);
+        if (utm.utm_campaign) fd.set('utmCampaign', utm.utm_campaign);
+      } catch { /* attribution is optional */ }
       const r = await fetch('/api/quote-request', {
         method: 'POST',
         body: fd,

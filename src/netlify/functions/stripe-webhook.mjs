@@ -11,7 +11,8 @@ import twilio from 'twilio';
 import { json } from './_lib/store.mjs';
 import { stripe, orderStore } from './_lib/stripe.mjs';
 import { sendOrderConfirmation, sendOrderNotification } from './_lib/email.mjs';
-import { importPaymentIntentAsOrder } from './_lib/stripe-order-sync.mjs';
+import { importPaymentIntentAsOrder, lineItemToOrderItem } from './_lib/stripe-order-sync.mjs';
+import { syncOrderToBackOffice } from './_lib/backoffice-orders.mjs';
 
 export default async (req) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
@@ -97,8 +98,12 @@ async function onPaymentIntentSucceeded(pi, connectedAccount) {
   if (res.reason === 'lookup_failed') throw new Error('Stripe checkout session lookup failed');
   if (res.action === 'imported') {
     console.log('[stripe-webhook] imported payment as order via payment_intent.succeeded', res.order.id, res.order.source);
-    await maybeSendOrderSms(res.order);
-    await maybeSendOrderEmails(res.order);
+    try {
+      await maybeSendOrderSms(res.order);
+      await maybeSendOrderEmails(res.order);
+    } finally {
+      await bestEffortBackOfficeSync(res.order.id);
+    }
     return;
   }
   if (res.order) await maybeSendOrderEmails(res.order);
@@ -113,20 +118,26 @@ async function onCheckoutComplete(session, connectedAccount) {
   const existing = await orderStore().get(session.id, { type: 'json' });
 
   if (existing && existing.id === session.id) {
-    if (existing.sms_sent && existing.email_sent && existing.owner_email_sent !== false) {
-      console.log('[stripe-webhook] duplicate event (already notified), skipping', session.id);
+    try {
+      if (existing.sms_sent && existing.email_sent && existing.owner_email_sent !== false) {
+        console.log('[stripe-webhook] duplicate event (already notified), skipping', session.id);
+        return;
+      }
+      // Order persisted previously but a notification hadn't yet succeeded — retry only the missing pieces.
+      await maybeSendOrderSms(existing);
+      await maybeSendOrderEmails(existing);
       return;
+    } finally {
+      // No-op once synced; otherwise a Stripe retry doubles as a Back Office retry.
+      await bestEffortBackOfficeSync(existing.id);
     }
-    // Order persisted previously but a notification hadn't yet succeeded — retry only the missing pieces.
-    await maybeSendOrderSms(existing);
-    await maybeSendOrderEmails(existing);
-    return;
   }
 
   // Fetch line items expanded — Stripe doesn't include them on the bare session.
+  // The product is expanded so its metadata.product_id links back to our catalog.
   let lineItems = [];
   try {
-    const list = await stripe().checkout.sessions.listLineItems(session.id, { limit: 50 }, connectedAccount ? { stripeAccount: connectedAccount } : undefined);
+    const list = await stripe().checkout.sessions.listLineItems(session.id, { limit: 50, expand: ['data.price.product'] }, connectedAccount ? { stripeAccount: connectedAccount } : undefined);
     lineItems = list.data || [];
   } catch (err) {
     console.warn('[stripe-webhook] could not fetch line items', err?.message);
@@ -150,12 +161,7 @@ async function onCheckoutComplete(session, connectedAccount) {
     payment_status: session.payment_status,
     status: session.status,
     created_at: new Date((session.created || Math.floor(Date.now() / 1000)) * 1000).toISOString(),
-    items: lineItems.map((li) => ({
-      description: li.description,
-      quantity: li.quantity,
-      amount_total: li.amount_total,
-      product_id: li.price?.product_metadata?.product_id || li.price?.metadata?.product_id || null,
-    })),
+    items: lineItems.map(lineItemToOrderItem),
     // Lifecycle (Epic 4): admin-controlled stages independent of Stripe payment_status.
     lifecycle: 'new',
     lifecycle_at: nowIso,
@@ -175,8 +181,25 @@ async function onCheckoutComplete(session, connectedAccount) {
 
   await orderStore().setJSON(order.id, order);
 
-  await maybeSendOrderSms(order);
-  await maybeSendOrderEmails(order);
+  try {
+    await maybeSendOrderSms(order);
+    await maybeSendOrderEmails(order);
+  } finally {
+    await bestEffortBackOfficeSync(order.id);
+  }
+}
+
+// Push a paid website order into Back Office. Never throws: failures are
+// queued in the Back Office outbox and retried by backoffice-sync-retry.
+async function bestEffortBackOfficeSync(orderId) {
+  try {
+    const res = await syncOrderToBackOffice(orderId, { timeoutMs: 6000 });
+    if (res.status === 'failed' || res.status === 'unknown' || res.status === 'needs_reconcile') {
+      console.warn('[stripe-webhook] Back Office order sync', res.status, orderId, res.error || '');
+    }
+  } catch (err) {
+    console.warn('[stripe-webhook] Back Office order sync error', orderId, err?.message || err);
+  }
 }
 
 async function maybeSendOrderEmails(order) {

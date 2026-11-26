@@ -298,7 +298,7 @@
     if (section === 'orders')   loadOrders();
     if (section === 'leads')    loadLeads();
     if (section === 'users')    loadUsers();
-    if (section === 'connect')  loadConnect();
+    if (section === 'connect')  { loadConnect(); loadBackOffice(); }
     if (section === 'categories') loadCategories();
     if (section === 'site-media') loadSiteMedia();
     if (section === 'content') window.Studio37ContentAdmin?.load({ api, markDirty, markClean });
@@ -810,6 +810,8 @@
       </div>
       <div style="margin-top:var(--space-5);color:var(--color-text-muted);font-size:.8rem;">
         Submitted ${lead.created_at ? new Date(lead.created_at).toLocaleString() : '—'}
+        ${lead.utm ? `<br/>Source: ${escapeHtml([lead.utm.source, lead.utm.medium, lead.utm.campaign].filter(Boolean).join(' / '))}` : ''}
+        <br/>${backOfficeSyncLine(lead.backoffice_sync, lead.backoffice_sync?.customer_id ? `customer ${lead.backoffice_sync.customer_id.slice(0, 8)}` : '')}
       </div>
     `;
 
@@ -822,6 +824,21 @@
     leadDrawer.classList.remove('open');
     leadDrawerOverlay.classList.remove('open');
     leadDrawer.setAttribute('aria-hidden', 'true');
+  }
+
+  const BACKOFFICE_SYNC_LABEL = {
+    synced: 'Sent',
+    failed: 'Failed — retrying automatically',
+    unknown: 'Delivery unconfirmed — retrying automatically',
+    needs_reconcile: 'Delivery unconfirmed — needs Back Office API key to check',
+    skipped: 'Not sent (historical import)',
+  };
+
+  function backOfficeSyncLine(sync, detail) {
+    if (!sync || !sync.state) return 'Back Office: not sent';
+    const label = BACKOFFICE_SYNC_LABEL[sync.state] || sync.state;
+    const extra = [detail, sync.error && sync.state !== 'synced' ? sync.error : ''].filter(Boolean).join(' · ');
+    return `Back Office: ${escapeHtml(label)}${extra ? ` <span style="opacity:.8;">(${escapeHtml(extra)})</span>` : ''}`;
   }
 
   $('#lead-drawer-close')?.addEventListener('click', closeLeadDrawer);
@@ -931,6 +948,10 @@
         <ul style="margin:6px 0 0;padding-left:1.25rem;">${lines || '<li>—</li>'}</ul>
         <div style="margin-top:var(--space-3);font-weight:600;">Total: ${total}</div>
         <div style="color:var(--color-text-muted);font-size:.75rem;margin-top:var(--space-2);">Stripe session: <code>${escapeHtml(order.id)}</code></div>
+        ${order.source === 'website_checkout' ? `<div style="color:var(--color-text-muted);font-size:.75rem;margin-top:var(--space-1);">${backOfficeSyncLine(
+          order.backoffice_sync,
+          [order.backoffice_sync?.order_number || order.backoffice_order_number, order.backoffice_status ? `status: ${order.backoffice_status}` : ''].filter(Boolean).join(' · '),
+        )}</div>` : ''}
       </div>
     `;
 
@@ -1065,6 +1086,92 @@
       btn.disabled = false;
       btn.textContent = originalText;
     }
+  });
+
+  // ── Back Office integration ────────────────────────────
+  async function loadBackOffice() {
+    const el = $('#backoffice-config-status');
+    if (!el) return;
+    try {
+      const s = await api('/api/admin/backoffice?action=status');
+      const c = s.configured || {};
+      const flag = (ok, label) => `${ok ? '✓' : '✗'} ${label}`;
+      const parts = [
+        flag(c.api_key, 'API key'),
+        flag(c.website_webhook_secret, 'lead/order webhook'),
+        flag(c.outbound_webhook_secret, 'status webhook'),
+        `${s.linked_products || 0} products linked`,
+      ];
+      if (s.outbox?.count) parts.push(`${s.outbox.count} waiting to retry`);
+      el.textContent = `${c.tenant_slug || ''} @ ${c.base_url || ''} — ${parts.join(' · ')}`;
+      el.title = `Register ${s.outbound_webhook_url || ''} in Back Office → Webhooks & Integrations.`;
+    } catch (err) {
+      el.textContent = 'Could not load Back Office status: ' + (err.message || '');
+    }
+  }
+
+  async function runBackOfficeAction(btn, statusEl, busyText, request, describe) {
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = busyText;
+    statusEl.textContent = '';
+    statusEl.style.color = '';
+    try {
+      const res = await request();
+      const { text, error } = describe(res);
+      statusEl.textContent = text;
+      if (error) statusEl.style.color = 'var(--color-danger, #b54)';
+      await loadBackOffice();
+    } catch (err) {
+      statusEl.textContent = 'Failed: ' + (err.message || '');
+      statusEl.style.color = 'var(--color-danger, #b54)';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  }
+
+  $('#backoffice-sync-catalog-btn')?.addEventListener('click', (e) => runBackOfficeAction(
+    e.currentTarget, $('#backoffice-sync-status'), 'Syncing…',
+    () => api('/api/admin/backoffice?action=sync-catalog', { method: 'POST', body: '{}' }),
+    (res) => {
+      const parts = [`${res.created || 0} created`, `${res.updated || 0} updated`, `${res.unchanged || 0} unchanged`, `${res.skipped || 0} skipped`];
+      if (res.failed) parts.push(`${res.failed} failed`);
+      let text = 'Done — ' + parts.join(', ') + '.';
+      if (res.remaining) text += ` ${res.remaining} not reached — run again to finish.`;
+      if (res.errors?.length) text += ' ' + res.errors.slice(0, 3).map((x) => `${x.productId}: ${x.error}`).join('; ');
+      return { text, error: !!res.failed };
+    },
+  ));
+
+  $('#backoffice-retry-btn')?.addEventListener('click', (e) => runBackOfficeAction(
+    e.currentTarget, $('#backoffice-sync-status'), 'Retrying…',
+    () => api('/api/admin/backoffice?action=retry-sync', { method: 'POST', body: '{}' }),
+    (res) => {
+      let text = `Done — ${res.synced || 0} sent, ${res.failed || 0} failed, ${res.skipped || 0} skipped.`;
+      if (res.remaining) text += ` ${res.remaining} not reached — run again.`;
+      return { text, error: !!res.failed };
+    },
+  ));
+
+  $('#backoffice-import-btn')?.addEventListener('click', (e) => {
+    const input = $('#backoffice-import-id');
+    const statusEl = $('#backoffice-import-status');
+    const catalogItemId = (input.value || '').trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(catalogItemId)) {
+      statusEl.textContent = 'Enter the Back Office catalog item ID (a UUID).';
+      statusEl.style.color = 'var(--color-danger, #b54)';
+      return;
+    }
+    return runBackOfficeAction(
+      e.currentTarget, statusEl, 'Publishing…',
+      () => api('/api/admin/backoffice?action=import-item', { method: 'POST', body: JSON.stringify({ catalogItemId }) }),
+      (res) => {
+        input.value = '';
+        loadProducts();
+        return { text: `${res.action === 'created' ? 'Created' : 'Updated'} “${res.product?.name || ''}” (${res.product?.status || ''}).` };
+      },
+    );
   });
 
   async function loadConnect() {

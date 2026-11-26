@@ -334,6 +334,27 @@
             <button type="button" id="connect-import-payments-btn" class="btn-admin-primary">Import historical payments</button>
             <p id="connect-import-status" style="font-size:.8125rem;margin:var(--space-2) 0 0;"></p>
           </div>
+          <div class="card" id="backoffice-card" style="padding:var(--space-5);margin-bottom:var(--space-5);max-width:680px;">
+            <h3 style="margin:0 0 var(--space-2);font-size:1rem;">Back Office</h3>
+            <p style="color:var(--color-text-muted);font-size:.875rem;margin:0 0 var(--space-3);">
+              Quote requests and paid website orders are sent to Back Office automatically, and
+              Back Office order status updates move orders here forward. Product saves sync to the
+              Back Office catalog by SKU. Use these buttons to backfill the catalog, retry anything
+              that failed to send, or publish a verified Back Office product to the shop. All safe
+              to re-run &mdash; nothing is duplicated.
+            </p>
+            <p id="backoffice-config-status" style="font-size:.8125rem;margin:0 0 var(--space-3);color:var(--color-text-muted);">Loading&hellip;</p>
+            <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
+              <button type="button" id="backoffice-sync-catalog-btn" class="btn-admin-primary">Sync catalog to Back Office</button>
+              <button type="button" id="backoffice-retry-btn" class="btn-admin-ghost">Retry failed syncs</button>
+            </div>
+            <p id="backoffice-sync-status" style="font-size:.8125rem;margin:var(--space-2) 0 0;"></p>
+            <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;margin-top:var(--space-4);">
+              <input id="backoffice-import-id" type="text" placeholder="Back Office catalog item ID (uuid)" style="flex:1;min-width:260px;" />
+              <button type="button" id="backoffice-import-btn" class="btn-admin-primary">Publish to shop</button>
+            </div>
+            <p id="backoffice-import-status" style="font-size:.8125rem;margin:var(--space-2) 0 0;"></p>
+          </div>
           <table class="admin-table">
             <thead>
               <tr>

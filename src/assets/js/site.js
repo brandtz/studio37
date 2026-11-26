@@ -5,6 +5,17 @@
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
+  // Remember campaign attribution for this visit so the quote form can pass it to Back Office.
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const utm = {};
+    ['utm_source', 'utm_medium', 'utm_campaign'].forEach((k) => {
+      const v = (params.get(k) || '').trim().slice(0, 100);
+      if (v) utm[k] = v;
+    });
+    if (Object.keys(utm).length) sessionStorage.setItem('s37_utm', JSON.stringify(utm));
+  } catch { /* storage unavailable (private mode) — attribution is optional */ }
+
   // ── Inject shared nav + footer via fetch (no build step). ──
   // Markup is inlined to keep things working when opened from disk via local server.
   // Page-level <head> sets <html data-page="home"> etc. so we can highlight the nav link.

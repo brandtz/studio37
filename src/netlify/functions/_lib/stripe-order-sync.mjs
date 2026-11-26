@@ -84,6 +84,27 @@ function buildStandaloneOrder(pi, tenantId, stripeAccountId, { historicalImport 
 }
 
 /**
+ * Map a Checkout Session line item (listed with `expand: ['data.price.product']`)
+ * to our order item shape. `product_id` comes from the inline product
+ * metadata set by stripe-checkout-session (or the synced Stripe product).
+ */
+export function lineItemToOrderItem(li) {
+  const product = li.price?.product && typeof li.price.product === 'object' ? li.price.product : null;
+  return {
+    description: li.description,
+    quantity: li.quantity,
+    amount_total: li.amount_total,
+    amount_subtotal: li.amount_subtotal ?? null,
+    unit_amount: li.price?.unit_amount ?? null,
+    product_id: product?.metadata?.product_id
+      || product?.metadata?.studio37_product_id
+      || li.price?.product_metadata?.product_id
+      || li.price?.metadata?.product_id
+      || null,
+  };
+}
+
+/**
  * Build an order the same way stripe-webhook.mjs's checkout.session.completed
  * handler normally would. Shared so a backfilled website order looks
  * identical to one captured live by the webhook.
@@ -94,7 +115,7 @@ export async function buildOrderFromCheckoutSession(session, stripeAccountId, { 
   try {
     const list = await stripe().checkout.sessions.listLineItems(
       session.id,
-      { limit: 50 },
+      { limit: 50, expand: ['data.price.product'] },
       stripeAccountId ? { stripeAccount: stripeAccountId } : undefined,
     );
     lineItems = list.data || [];
@@ -120,12 +141,7 @@ export async function buildOrderFromCheckoutSession(session, stripeAccountId, { 
     payment_status: session.payment_status,
     status: session.status,
     created_at: new Date((session.created || Math.floor(Date.now() / 1000)) * 1000).toISOString(),
-    items: lineItems.map((li) => ({
-      description: li.description,
-      quantity: li.quantity,
-      amount_total: li.amount_total,
-      product_id: li.price?.product_metadata?.product_id || li.price?.metadata?.product_id || null,
-    })),
+    items: lineItems.map(lineItemToOrderItem),
     lifecycle: 'new',
     lifecycle_at: nowIso,
     tracking_number: null,
@@ -147,6 +163,9 @@ export async function buildOrderFromCheckoutSession(session, stripeAccountId, { 
     owner_email_sent: historicalImport,
     owner_email_sent_at: historicalImport ? nowIso : null,
     owner_email_id: null,
+    // A backfilled (possibly weeks-old) order must not land in the Back
+    // Office production queue or deduct inventory after the fact.
+    ...(historicalImport ? { backoffice_sync: { state: 'skipped', reason: 'historical_import' } } : {}),
   };
 }
 

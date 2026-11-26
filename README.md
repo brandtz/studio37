@@ -84,6 +84,14 @@ Stripe onboarding refresh links are bound to the connected account and expire
 after 24 hours. If one expires, a super admin must generate a new onboarding
 link. Configure `SITE_URL` for the intended public origin.
 
+### Back Office
+
+Quote requests, paid website orders, catalog sync and order status updates
+connect to the Back Office platform. Each flow is off until its `BACKOFFICE_*`
+secret is set. See [Back Office integration](docs/backoffice-integration.md)
+for setup, webhook registration and the optional MCP endpoint
+(`STOREFRONT_MCP_TOKEN`).
+
 ## Build status
 
 See [`TODO.md`](TODO.md).

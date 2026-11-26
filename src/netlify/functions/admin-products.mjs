@@ -5,6 +5,9 @@ import { ensureProductSeeded, productStore, json, nowIso, slugify, logAudit } fr
 import { requireSession } from './_lib/auth.mjs';
 import { resolveTenant, tenantHasAccount } from './_lib/stripe.mjs';
 import { syncOneProductToStripe, deactivateStripeProduct } from './_lib/stripe-product-sync.mjs';
+import { syncProductToBackOffice } from './_lib/backoffice-catalog.mjs';
+import { errorSummary } from './_lib/backoffice.mjs';
+import { sanitizeProduct as sanitize } from './_lib/product-sanitize.mjs';
 
 // Best-effort push to Stripe — never blocks or fails a product save. Mirrors
 // the SMS/email pattern used elsewhere in this codebase: if Stripe isn't
@@ -26,6 +29,16 @@ async function bestEffortStripeDeactivate(product) {
     await deactivateStripeProduct(tenant, product);
   } catch (err) {
     console.warn('[admin-products] Stripe deactivate failed for', product?.id, err?.message || err);
+  }
+}
+
+// Same contract for the Back Office catalog: archived products are marked
+// inactive there; nothing happens until BACKOFFICE_API_KEY is configured.
+async function bestEffortBackOfficeSync(product) {
+  try {
+    await syncProductToBackOffice(product);
+  } catch (err) {
+    console.warn('[admin-products] Back Office catalog sync failed for', product?.id, errorSummary(err));
   }
 }
 
@@ -75,6 +88,7 @@ export default async (req) => {
     await logAudit({ actor, action: 'product.create', entity: 'product', entity_id: productId, after: product, req });
     if (product.status === 'archived') await bestEffortStripeDeactivate(product);
     else await bestEffortStripeSync(product);
+    await bestEffortBackOfficeSync(product);
     return json(product, 201);
   }
 
@@ -90,6 +104,7 @@ export default async (req) => {
     await logAudit({ actor, action: 'product.update', entity: 'product', entity_id: id, before: existing, after: updated, req });
     if (updated.status === 'archived') await bestEffortStripeDeactivate(updated);
     else await bestEffortStripeSync(updated);
+    await bestEffortBackOfficeSync(updated);
     return json(updated);
   }
 
@@ -102,39 +117,12 @@ export default async (req) => {
     await store.setJSON(id, updated);
     await logAudit({ actor, action: 'product.archive', entity: 'product', entity_id: id, before: existing, after: updated, req });
     await bestEffortStripeDeactivate(updated);
+    await bestEffortBackOfficeSync(updated);
     return json(updated);
   }
 
   return json({ error: 'method_not_allowed' }, 405);
 };
-
-function sanitize(p) {
-  const allowed = [
-    'id', 'name', 'subtitle', 'price', 'description', 'category',
-    'images', 'status', 'by_request', 'shipping', 'weight_oz',
-    'sku', 'dimensions', 'materials', 'lead_time_days',
-    'created_at', 'updated_at',
-  ];
-  const out = {};
-  for (const k of allowed) if (k in p) out[k] = p[k];
-  // Coerce types defensively
-  if (typeof out.price === 'string') out.price = parseInt(out.price, 10) || null;
-  if (typeof out.weight_oz === 'string') out.weight_oz = parseInt(out.weight_oz, 10) || 0;
-  if (typeof out.lead_time_days === 'string') out.lead_time_days = parseInt(out.lead_time_days, 10) || null;
-  if (typeof out.sku === 'string') out.sku = out.sku.trim().slice(0, 40);
-  if (typeof out.dimensions === 'string') out.dimensions = out.dimensions.trim().slice(0, 120);
-  if (typeof out.materials === 'string') out.materials = out.materials.trim().slice(0, 240);
-  // Image URL validation: only http(s), cap at 8, sane length.
-  out.images = Array.isArray(out.images)
-    ? out.images
-        .filter((u) => typeof u === 'string' && u.length <= 1000 && /^https?:\/\//i.test(u))
-        .slice(0, 8)
-    : [];
-  out.status = ['available', 'out_of_stock', 'by_request', 'archived'].includes(out.status)
-    ? out.status
-    : 'available';
-  return out;
-}
 
 export const config = {
   path: ['/api/admin/products', '/api/admin/products/:id'],
