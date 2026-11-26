@@ -59,7 +59,12 @@ async function send(url, init, timeoutMs) {
     const text = await res.text();
     body = text ? JSON.parse(text) : null;
   } catch {
-    body = null;
+    if (res.ok) {
+      throw new BackOfficeError('Back Office returned an unreadable response', {
+        code: 'BAD_RESPONSE',
+        ambiguous: true,
+      });
+    }
   }
   if (!res.ok) {
     const code = typeof body?.error?.code === 'string' ? body.error.code : '';
@@ -87,10 +92,19 @@ export async function postWebsiteEvent(payload, { timeoutMs = DEFAULT_TIMEOUT_MS
       'content-type': 'application/json',
       'x-tenant-slug': cfg.tenantSlug,
       'x-webhook-signature': `v1=${signWebsitePayload(rawBody, cfg.websiteSecret)}`,
+      'idempotency-key': payload.eventId,
     },
     body: rawBody,
   }, timeoutMs);
-  return body?.data || {};
+  const data = body?.data;
+  const required = payload.type === 'order' ? ['customerId', 'orderId', 'orderNumber'] : ['customerId', 'interactionId'];
+  if (!data || required.some((field) => typeof data[field] !== 'string' || !data[field].trim())) {
+    throw new BackOfficeError('Back Office did not return the created record identifiers', {
+      code: 'BAD_RESPONSE',
+      ambiguous: true,
+    });
+  }
+  return data;
 }
 
 /**

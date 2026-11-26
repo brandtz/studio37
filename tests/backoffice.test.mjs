@@ -116,6 +116,7 @@ test('leads are posted once with an HMAC signature over the raw body, retried af
   assert.equal(failed.status, 'failed');
   assert.equal((await store('leads').get(lead.id)).backoffice_sync.state, 'failed');
   assert.equal((await store('backoffice_outbox').get(`lead/${lead.id}`)).attempts, 1);
+  assert.equal(fetchCalls[0].headers['idempotency-key'], `lead_${lead.id}`);
 
   fetchCalls = [];
   fetchHandler = () => Response.json({ data: { customerId: 'cust-1', interactionId: 'int-1' } }, { status: 201 });
@@ -128,6 +129,7 @@ test('leads are posted once with an HMAC signature over the raw body, retried af
   assert.equal(call.method, 'POST');
   assert.equal(call.headers['x-tenant-slug'], 'studio-37');
   assert.equal(call.headers['x-webhook-signature'], `v1=${hmac(WEBSITE_SECRET, call.raw)}`);
+  assert.equal(call.headers['idempotency-key'], `lead_${lead.id}`);
   assert.equal(call.body.eventId, `lead_${lead.id}`);
   assert.equal(call.body.type, 'lead');
   assert.deepEqual(call.body.customer, {
@@ -195,6 +197,7 @@ test('an order whose delivery timed out is reconciled instead of posted twice', 
   const first = await syncOrderToBackOffice(order.id);
   assert.equal(first.status, 'unknown');
   assert.equal(fetchCalls[0].body.externalOrderId, order.id);
+  assert.equal(fetchCalls[0].headers['idempotency-key'], `order_${order.id}`);
 
   fetchCalls = [];
   fetchHandler = (call) => {
@@ -250,10 +253,57 @@ test('a local write failure after Back Office accepts an order never causes a re
   const other = { ...order, id: 'cs_unlinked' };
   await store('orders').setJSON(other.id, other);
   fetchCalls = [];
-  fetchHandler = () => Response.json({ data: { orderId: BO_ORDER_ID, orderNumber: 'ORD-1003' } }, { status: 201 });
+  fetchHandler = () => Response.json({ data: { customerId: 'cust-1', orderId: BO_ORDER_ID, orderNumber: 'ORD-1003' } }, { status: 201 });
   failNextWrite.add(`backoffice_order_index/${BO_ORDER_ID}`);
   assert.equal((await syncOrderToBackOffice(other.id)).status, 'synced');
   assert.equal((await store('orders').get(other.id)).backoffice_sync.order_number, 'ORD-1003');
+});
+
+test('malformed successful order responses remain ambiguous and reconcile before retrying', async () => {
+  process.env.BACKOFFICE_WEBSITE_WEBHOOK_SECRET = WEBSITE_SECRET;
+  process.env.BACKOFFICE_API_KEY = API_KEY;
+  const replies = [
+    () => new Response('<html>Proxy response</html>'),
+    () => new Response(null, { status: 204 }),
+    () => Response.json({}),
+    () => Response.json({ data: { customerId: 'cust-1' } }),
+    () => Response.json({ data: { customerId: 'cust-1', orderId: '', orderNumber: 'ORD-1004' } }),
+  ];
+  for (const [index, reply] of replies.entries()) {
+    const order = {
+      id: `cs_bad_response_${index}`, source: 'website_checkout', payment_status: 'paid',
+      created_at: new Date().toISOString(), items: [{ description: 'Bowl', quantity: 1, unit_amount: 5000 }],
+    };
+    await store('orders').setJSON(order.id, order);
+    fetchHandler = reply;
+    const sent = await syncOrderToBackOffice(order.id);
+    assert.equal(sent.status, 'unknown');
+    assert.equal((await store('orders').get(order.id)).backoffice_sync.state, 'unknown');
+    assert.equal((await store('backoffice_outbox').get(`order/${order.id}`)).last_state, 'unknown');
+
+    fetchCalls = [];
+    fetchHandler = (call) => {
+      assert.equal(call.method, 'GET', 'an ambiguous delivery must not be blindly posted again');
+      return Response.json({
+        data: [{ id: BO_ORDER_ID, externalOrderId: order.id, customerId: 'cust-1', orderNumber: 'ORD-1004', createdAt: new Date().toISOString() }],
+        meta: { hasMore: false },
+      });
+    };
+    const retried = await syncOrderToBackOffice(order.id);
+    assert.equal(retried.status, 'synced');
+    assert.equal(retried.reconciled, true);
+    assert.equal(fetchCalls.length, 1);
+  }
+});
+
+test('a lead is not marked synced without the customer and interaction identifiers', async () => {
+  process.env.BACKOFFICE_WEBSITE_WEBHOOK_SECRET = WEBSITE_SECRET;
+  const lead = { id: 'lead_bad_response', firstName: 'Test', email: 'test@example.com' };
+  await store('leads').setJSON(lead.id, lead);
+  fetchHandler = () => Response.json({ data: { customerId: 'cust-1' } });
+  assert.equal((await syncLeadToBackOffice(lead.id)).status, 'unknown');
+  assert.equal((await store('leads').get(lead.id)).backoffice_sync.state, 'unknown');
+  assert.ok(await store('backoffice_outbox').get(`lead/${lead.id}`));
 });
 
 test('orders that are unpaid, in-person or historical are never sent', async () => {

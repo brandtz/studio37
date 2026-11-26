@@ -56,10 +56,14 @@ Stripe imports are not sent.
 
 Back Office does not deduplicate website events. The storefront prevents
 duplicates by recording each delivery on the order and by holding a short lock
-during each attempt. If a request times out after Back Office may have
-processed it, the next attempt first searches Back Office website orders for
-the `externalOrderId` (this needs `BACKOFFICE_API_KEY`) and only resends when
-the order is not found.
+during each attempt. All lead and order creates send a deterministic
+`Idempotency-Key` equal to their event ID, including retries; this does not
+replace reconciliation while the Back Office website endpoint ignores that
+header. If a request times out or returns a malformed success response after
+Back Office may have processed it, the next attempt first searches Back Office
+website orders for the `externalOrderId` (this needs `BACKOFFICE_API_KEY`) and
+only resends when the order is not found. A delivery is marked synced only
+after Back Office returns the required record identifiers.
 
 ## Retries
 
@@ -127,6 +131,35 @@ responses. Clients must send `Authorization: Bearer <token>`. Tools:
   without contact details.
 
 Without a token, the endpoint returns `404`.
+
+## End-to-end verification
+
+Passing the local tests is not proof that the deployed integration is
+configured. Complete these checks after setup and redeployment, using clearly
+labelled test records and a Stripe test-mode checkout rather than a real charge:
+
+- Submit the storefront quote form with a unique test email and UTM tags.
+  Confirm the saved lead is synced, its linked Back Office customer has
+  **Waiting on owner**, and the inbound `form` interaction contains the inquiry
+  with `containsExternalInput: true`.
+- Sync the catalog twice. Record each run's result and compare Back Office item
+  IDs and exact SKUs: the second run must not create duplicates. Every published
+  storefront product should have a saved Back Office link.
+- Complete a test checkout for a linked product. Confirm exactly one matching
+  Back Office website order with the checkout ID as `externalOrderId`, its
+  `ORD-xxxx` number, and the production work items. For a tracked item, compare
+  the inventory before/after and verify a sale movement for the ordered quantity.
+- Change that order's Back Office status through `in_production`, `ready` and
+  `fulfilled`. Verify successful outbound deliveries and the corresponding
+  storefront lifecycle/history. Deliver `quote.accepted` and `invoice.paid`
+  test events and confirm their storefront audit entries.
+- POST an invalid signature to both `/api/webhooks/website` on Back Office and
+  `/api/webhooks/backoffice` on the storefront. Both must return `401`.
+  A storefront `503 webhook_not_configured` is a setup blocker, not a pass.
+
+Retain the run time, deployed commit, HTTP results and test record IDs with the
+verification results; exclude credentials and customer details. Do not mark
+the live checklist complete while any of these checks is blocked or unrun.
 
 ## Differences from the integration spec
 
